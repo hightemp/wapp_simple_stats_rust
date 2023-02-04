@@ -110,6 +110,7 @@ impl<'r> FromRequest<'r> for RequestData {
     async fn from_request(req: &'r Request<'_>) -> request::Outcome<Self, Self::Error> {
         let mut o_request_data = RequestData { s_ip: String::from(""), v_headers: HashMap::new() };
 
+        o_request_data.s_ip = req.remote().unwrap().to_string();        
         req.headers().iter().map(|h| {
                 let s_h = String::from(h.name.as_str());
                 let s_v = String::from(h.value);
@@ -176,20 +177,174 @@ async fn get_statistics_self() -> content::RawHtml<String> {
 #[derive(Serialize, Deserialize, Debug)]
 struct Visitors {
     timestamp: String,
+    path: String,
     ip: String,
     json: String
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+struct GroupedVisitors {
+    count: i64,
+    path: String
+}
+
+fn fn_row_to_visitor(row: &Row) -> Result<Visitors> {
+    Ok(Visitors {
+        timestamp: row.get(0).unwrap(),
+        path: row.get(1).unwrap(),
+        ip: row.get(2).unwrap(),
+        json: row.get(3).unwrap(),
+    })
+}
+
+#[get("/statistics/<path>")]
+async fn get_statistics_path(path: String) -> content::RawHtml<String> {
+    let mut s_html = r###"
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Statistics</title>
+</head>
+<body>
+    <div class="stat-table">
+        <div class="raw-header">
+            <div class="cell">Timestamp</div>
+            <div class="cell">Path</div>
+            <div class="cell">IP</div>
+            <div class="cell">JSON</div>
+        </div>
+"###.to_string();
+
+    let conn = Connection::open(DB_HOST).unwrap();
+
+    let mut stmt;
+    let visitors_iter;
+    if path=="__all__" {
+        stmt = conn.prepare("SELECT timestamp, path, ip, json FROM visitors ORDER BY timestamp DESC").unwrap();
+        visitors_iter = stmt.query_map(
+            [], 
+            fn_row_to_visitor
+        ).unwrap();
+    } else {
+        stmt = conn.prepare("SELECT timestamp, path, ip, json FROM visitors WHERE path = ? ORDER BY timestamp DESC").unwrap();
+        visitors_iter = stmt.query_map(
+            [path], 
+            fn_row_to_visitor
+        ).unwrap();
+    }
+
+    for visitor_result in visitors_iter {
+        s_html = s_html + r#"<div class="raw">"#;
+        let v = visitor_result.unwrap();
+        s_html = s_html + r#"<div class="cell">"#+v.timestamp.as_str()+r#"</div>"#;
+        s_html = s_html + r#"<div class="cell">"#+v.path.as_str()+r#"</div>"#;
+        s_html = s_html + r#"<div class="cell">"#+v.ip.as_str()+r#"</div>"#;
+        s_html = s_html + r#"<div class="cell">"#+v.json.as_str()+"</div>";
+        s_html = s_html + "</div>";
+    }
+
+    s_html = s_html + r###"
+</div>
+<style>
+.stat-table { border-bottom: 1px solid rgba(0,0,0,0.1); border-right: 1px solid rgba(0,0,0,0.1); }
+.raw-header, .raw {
+display: grid;
+grid-template-columns: 120px 120px 120px 1fr;
+}
+.raw-header .cell {
+font-weight: bold;
+background: #eee;
+}
+.cell { border-top: 1px solid rgba(0,0,0,0.1); border-left: 1px solid rgba(0,0,0,0.1); }
+.cell { padding: 5px; }
+</style>
+</body>
+</html>
+"###;
+
+return content::RawHtml(s_html);
+}
+
+#[get("/statistics")]
+async fn get_statistics() -> content::RawHtml<String> {
+    let mut s_html = r###"
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Statistics</title>
+</head>
+<body>
+    <div class="stat-table">
+        <div class="raw-header">
+            <div class="cell">Path</div>
+            <div class="cell">Visitors</div>
+        </div>
+"###.to_string();
+
+    let conn = Connection::open(DB_HOST).unwrap();
+
+    let mut i_all: i64 = conn.query_row("SELECT COUNT(*) AS c FROM visitors ORDER BY timestamp DESC", [], |o| { o.get(0) }).unwrap();
+
+    let mut stmt = conn.prepare("SELECT COUNT(*) AS c, path FROM visitors GROUP BY path ORDER BY timestamp DESC").unwrap();
+    let visitors_iter = stmt.query_map([], |row| {
+        Ok(GroupedVisitors {
+            count: row.get(0).unwrap(),
+            path: row.get(1).unwrap()
+        })
+    }).unwrap();
+
+    s_html = s_html + r#"<div class="raw">"#;
+        s_html = s_html + r#"<div class="cell"><a href="/statistics/__all__">ALL</a></div>"#;
+        s_html = s_html + r#"<div class="cell">"#+i_all.to_string().as_str()+"</div>";
+    s_html = s_html + "</div>";
+    
+    for visitor_result in visitors_iter {
+        s_html = s_html + r#"<div class="raw">"#;
+        let v = visitor_result.unwrap();
+        s_html = s_html + r#"<div class="cell"><a href="/statistics/"#+v.path.as_str()+r#"">"#+v.path.as_str()+r#"</a></div>"#;
+        s_html = s_html + r#"<div class="cell">"#+v.count.to_string().as_str()+"</div>";
+        s_html = s_html + "</div>";
+    }
+
+    s_html = s_html + r###"
+</div>
+<style>
+.stat-table { border-bottom: 1px solid rgba(0,0,0,0.1); border-right: 1px solid rgba(0,0,0,0.1); }
+.raw-header, .raw {
+    display: grid;
+    grid-template-columns: 120px 1fr;
+}
+.raw-header .cell {
+    font-weight: bold;
+    background: #eee;
+}
+.cell { border-top: 1px solid rgba(0,0,0,0.1); border-left: 1px solid rgba(0,0,0,0.1); }
+.cell { padding: 5px; }
+</style>
+</body>
+</html>
+"###;
+
+    return content::RawHtml(s_html);
 }
 
 #[get("/statistics_self_full_json")]
 async fn get_statistics_self_full_json() -> content::RawJson<String> {
     let conn = Connection::open(DB_HOST).unwrap();
 
-    let mut stmt = conn.prepare("SELECT timestamp, ip, json FROM visitors ORDER BY timestamp DESC").unwrap();
+    let mut stmt = conn.prepare("SELECT timestamp, path, ip, json FROM visitors ORDER BY timestamp DESC").unwrap();
     let visitors_iter = stmt.query_map([], |row| {
         Ok(Visitors {
             timestamp: row.get(0).unwrap(),
-            ip: row.get(1).unwrap(),
-            json: row.get(2).unwrap(),
+            path: row.get(1).unwrap(),
+            ip: row.get(2).unwrap(),
+            json: row.get(3).unwrap(),
         })
     }).unwrap();
 
@@ -199,7 +354,6 @@ async fn get_statistics_self_full_json() -> content::RawJson<String> {
     }
     let s_json = serde_json::to_string(&visitors).unwrap();
     return content::RawJson(s_json);
-    // return content::RawJson(String::from(""));
 }
 
 fn create_database() {
@@ -226,6 +380,8 @@ pub async fn main() -> Result<(), rocket::Error> {
             routes![
                 get_counter,
                 get_root,
+                get_statistics,
+                get_statistics_path,
                 get_statistics_self,
                 get_statistics_self_full_json
             ]
