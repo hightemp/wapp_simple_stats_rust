@@ -12,3 +12,5 @@ CGI счетчик посетителей на rust в базу sqlite3.
 - `statistics_self_full_json` - все данные на json
 
 ![](images/2023-02-05_00-28.png)
+
+![](https://asdertasd.site/counter/wapp_simple_stats_rust)
