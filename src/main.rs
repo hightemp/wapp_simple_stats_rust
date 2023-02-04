@@ -119,6 +119,9 @@ impl<'r> FromRequest<'r> for RequestData {
             let s_v = String::from(h.value);
             o_request_data.v_headers.insert(s_h, s_v);
         }
+        if (o_request_data.v_headers.contains_key("x-real-ip")) {
+            o_request_data.s_ip = o_request_data.v_headers.get("x-real-ip").unwrap().clone();
+        }
 
         Outcome::Success(o_request_data)
     }
@@ -321,7 +324,7 @@ font-weight: bold;
 background: #eee;
 }
 .cell { border-top: 1px solid rgba(0,0,0,0.1); border-left: 1px solid rgba(0,0,0,0.1); }
-.cell { padding: 5px; }
+.cell { padding: 5px; word-break: break-all; }
 </style>
 </body>
 </html>
