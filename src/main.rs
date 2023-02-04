@@ -390,7 +390,7 @@ async fn get_statistics() -> content::RawHtml<String> {
     background: #eee;
 }
 .cell { border-top: 1px solid rgba(0,0,0,0.1); border-left: 1px solid rgba(0,0,0,0.1); }
-.cell { padding: 5px; }
+.cell { padding: 5px; word-break: break-all; }
 </style>
 </body>
 </html>
