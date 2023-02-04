@@ -111,11 +111,14 @@ impl<'r> FromRequest<'r> for RequestData {
         let mut o_request_data = RequestData { s_ip: String::from(""), v_headers: HashMap::new() };
 
         o_request_data.s_ip = req.remote().unwrap().to_string();        
-        req.headers().iter().map(|h| {
-                let s_h = String::from(h.name.as_str());
-                let s_v = String::from(h.value);
-                o_request_data.v_headers.insert(s_h, s_v);
-            });
+        let v_ip: Vec<&str> = o_request_data.s_ip.split(":").collect();
+        o_request_data.s_ip = v_ip[0].to_string();
+        for h in req.headers().iter() {
+            println!("HEADER: {} {}", h.name, h.value);
+            let s_h = String::from(h.name.as_str());
+            let s_v = String::from(h.value);
+            o_request_data.v_headers.insert(s_h, s_v);
+        }
 
         Outcome::Success(o_request_data)
     }
@@ -183,22 +186,34 @@ struct Visitors {
 }
 
 #[derive(Serialize, Deserialize, Debug)]
+struct VisitorsGroupedByTime {
+    timestamp: String,
+    count: i64,
+    path: String,
+    ip: String,
+    json: String
+}
+
+#[derive(Serialize, Deserialize, Debug)]
 struct GroupedVisitors {
     count: i64,
     path: String
 }
 
-fn fn_row_to_visitor(row: &Row) -> Result<Visitors> {
-    Ok(Visitors {
+fn fn_row_to_visitor(row: &Row) -> Result<VisitorsGroupedByTime> {
+    Ok(VisitorsGroupedByTime {
         timestamp: row.get(0).unwrap(),
-        path: row.get(1).unwrap(),
-        ip: row.get(2).unwrap(),
-        json: row.get(3).unwrap(),
+        count: row.get(1).unwrap(),
+        path: row.get(2).unwrap(),
+        ip: row.get(3).unwrap(),
+        json: row.get(4).unwrap(),
     })
 }
 
 #[get("/statistics/<path>")]
 async fn get_statistics_path(path: String) -> content::RawHtml<String> {
+    let conn = Connection::open(DB_HOST).unwrap();
+
     let mut s_html = r###"
 <!DOCTYPE html>
 <html lang="en">
@@ -209,34 +224,79 @@ async fn get_statistics_path(path: String) -> content::RawHtml<String> {
     <title>Statistics</title>
 </head>
 <body>
-    <div class="stat-table">
-        <div class="raw-header">
-            <div class="cell">Timestamp</div>
-            <div class="cell">Path</div>
-            <div class="cell">IP</div>
-            <div class="cell">JSON</div>
-        </div>
 "###.to_string();
+    
 
-    let conn = Connection::open(DB_HOST).unwrap();
 
-    let mut stmt;
-    let visitors_iter;
+s_html = s_html + r###"
+<h4>Count</h4>
+<div class="stat-table">
+    <div class="raw-header">
+        <div class="cell">Timestamp</div>
+        <div class="cell">Count</div>
+        <div class="cell">Path</div>
+        <div class="cell"></div>
+    </div>
+"###;
+
+let mut stmt;
+let visitors_iter;
+if path=="__all__" {
+    stmt = conn.prepare("SELECT strftime('%d-%m-%Y',timestamp) AS t, COUNT(*) AS c, path, ip, json FROM visitors GROUP BY strftime('%d-%m-%Y',timestamp) ORDER BY timestamp DESC LIMIT 30").unwrap();
+    visitors_iter = stmt.query_map(
+        [], 
+        fn_row_to_visitor
+    ).unwrap();
+} else {
+    stmt = conn.prepare("SELECT strftime('%d-%m-%Y',timestamp) AS t, COUNT(*) AS c, path, ip, json FROM visitors WHERE path=? GROUP BY strftime('%d-%m-%Y',timestamp) ORDER BY timestamp DESC LIMIT 30").unwrap();
+    visitors_iter = stmt.query_map(
+        [path.clone()], 
+        fn_row_to_visitor
+    ).unwrap();
+}
+
+for visitor_result in visitors_iter {
+    s_html = s_html + r#"<div class="raw">"#;
+    let v = visitor_result.unwrap();
+    s_html = s_html + r#"<div class="cell">"#+v.timestamp.as_str()+r#"</div>"#;
+    s_html = s_html + r#"<div class="cell">"#+v.count.to_string().as_str()+r#"</div>"#;
+    s_html = s_html + r#"<div class="cell">"#+v.path.as_str()+r#"</div>"#;
+    s_html = s_html + r#"<div class="cell"></div>"#;
+    s_html = s_html + "</div>";
+}
+
+s_html = s_html + r###"
+</div>"###;
+
+
+    s_html = s_html + r###"
+<h4>Last 10</h4>
+<div class="stat-table">
+    <div class="raw-header">
+        <div class="cell">Timestamp</div>
+        <div class="cell">Path</div>
+        <div class="cell">IP</div>
+        <div class="cell">JSON</div>
+    </div>
+"###;
+
+    let mut stmt_last;
+    let visitors_iter_last;
     if path=="__all__" {
-        stmt = conn.prepare("SELECT timestamp, path, ip, json FROM visitors ORDER BY timestamp DESC").unwrap();
-        visitors_iter = stmt.query_map(
+        stmt_last = conn.prepare("SELECT strftime('%d-%m-%Y',timestamp) AS t, 1, path, ip, json FROM visitors ORDER BY timestamp DESC LIMIT 10").unwrap();
+        visitors_iter_last = stmt_last.query_map(
             [], 
             fn_row_to_visitor
         ).unwrap();
     } else {
-        stmt = conn.prepare("SELECT timestamp, path, ip, json FROM visitors WHERE path = ? ORDER BY timestamp DESC").unwrap();
-        visitors_iter = stmt.query_map(
-            [path], 
+        stmt_last = conn.prepare("SELECT strftime('%d-%m-%Y',timestamp) AS t, 1, path, ip, json FROM visitors WHERE path=? ORDER BY timestamp DESC LIMIT 10").unwrap();
+        visitors_iter_last = stmt_last.query_map(
+            [path.clone()], 
             fn_row_to_visitor
         ).unwrap();
     }
 
-    for visitor_result in visitors_iter {
+    for visitor_result in visitors_iter_last {
         s_html = s_html + r#"<div class="raw">"#;
         let v = visitor_result.unwrap();
         s_html = s_html + r#"<div class="cell">"#+v.timestamp.as_str()+r#"</div>"#;
@@ -245,9 +305,11 @@ async fn get_statistics_path(path: String) -> content::RawHtml<String> {
         s_html = s_html + r#"<div class="cell">"#+v.json.as_str()+"</div>";
         s_html = s_html + "</div>";
     }
+    s_html = s_html + r###"
+</div>"###;
+
 
     s_html = s_html + r###"
-</div>
 <style>
 .stat-table { border-bottom: 1px solid rgba(0,0,0,0.1); border-right: 1px solid rgba(0,0,0,0.1); }
 .raw-header, .raw {
