@@ -266,13 +266,13 @@ s_html = s_html + r###"
     let mut stmt_last;
     let visitors_iter_last;
     if path=="__all__" {
-        stmt_last = conn.prepare("SELECT strftime('%d-%m-%Y',timestamp) AS t, 1, path, ip, json FROM visitors ORDER BY timestamp DESC LIMIT 10").unwrap();
+        stmt_last = conn.prepare("SELECT strftime('%d-%m-%Y %H:%M:%S',timestamp) AS t, 1, path, ip, json FROM visitors ORDER BY timestamp DESC LIMIT 10").unwrap();
         visitors_iter_last = stmt_last.query_map(
             [], 
             fn_row_to_visitor
         ).unwrap();
     } else {
-        stmt_last = conn.prepare("SELECT strftime('%d-%m-%Y',timestamp) AS t, 1, path, ip, json FROM visitors WHERE path=? ORDER BY timestamp DESC LIMIT 10").unwrap();
+        stmt_last = conn.prepare("SELECT strftime('%d-%m-%Y %H:%M:%S',timestamp) AS t, 1, path, ip, json FROM visitors WHERE path=? ORDER BY timestamp DESC LIMIT 10").unwrap();
         visitors_iter_last = stmt_last.query_map(
             [path.clone()], 
             fn_row_to_visitor
