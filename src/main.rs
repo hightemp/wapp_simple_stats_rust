@@ -8,53 +8,13 @@ use rocket::response::content;
 use rocket::*;
 use rocket::{
     request::{FromRequest, Outcome, self, Request},
-    
 };
-use std::{convert::Infallible};
-use rocket::Route;
-use rocket::http::Method;
-
+use rocket::response::{self, Response, Responder};
+use rocket::http::ContentType;
 // use crate::request::Request;
-use crate::response::{self, Response, Responder};
-use crate::http::ContentType;
 use std::collections::HashMap;
 
 const DB_HOST: &str = "./wapp_simple_stats_rust.db";
-
-macro_rules! ctrs {
-    ($($name:ident: $ct:ident, $name_str:expr, $ct_str:expr),+) => {
-        $(
-            #[doc="Override the `Content-Type` of the response to <b>"]
-            #[doc=$name_str]
-            #[doc="</b>, or <i>"]
-            #[doc=$ct_str]
-            #[doc="</i>."]
-            ///
-            /// Delegates the remainder of the response to the wrapped responder.
-            ///
-            /// **Note:** Unlike types like [`Json`](crate::serde::json::Json)
-            /// and [`MsgPack`](crate::serde::msgpack::MsgPack), this type _does
-            /// not_ serialize data in any way. You should _always_ use those
-            /// types to respond with serializable data. Additionally, you
-            /// should _always_ use [`NamedFile`](crate::fs::NamedFile), which
-            /// automatically sets a `Content-Type`, to respond with file data.
-            #[derive(Debug, Clone, PartialEq)]
-            pub struct $name<R>(pub R);
-
-            /// Sets the Content-Type of the response then delegates the
-            /// remainder of the response to the wrapped responder.
-            impl<'r, 'o: 'r, R: Responder<'r, 'o>> Responder<'r, 'o> for $name<R> {
-                fn respond_to(self, req: &'r Request<'_>) -> response::Result<'o> {
-                    (ContentType::$ct, self.0).respond_to(req)
-                }
-            }
-        )+
-    }
-}
-
-ctrs! {
-    RawSVG: SVG, "SVG", "image/svg"
-}
 
 #[macro_use] extern crate rocket;
 
@@ -67,6 +27,22 @@ async fn get_root() -> content::RawHtml<String> {
 enum RequestDataError {
     Missing,
     Invalid,
+}
+
+use std::io::Cursor;
+
+struct Wrapper {
+    value: String
+}
+
+impl<'a> Responder<'a, 'a> for Wrapper {
+    fn respond_to(self, _: &Request) -> response::Result<'a> {
+        Response::build()
+            .raw_header("Cache-Control", "max-age=0, no-cache, no-store, must-revalidate")
+            .raw_header("Content-Type", "image/svg+xml; charset=utf-8")
+            .sized_body(self.value.len(), Cursor::new(self.value))
+            .ok()
+    }
 }
 
 pub mod vectorize {
@@ -128,7 +104,7 @@ impl<'r> FromRequest<'r> for RequestData {
 }
 
 #[get("/counter/<path>")]
-async fn get_counter(o_request_data: RequestData, path: String) -> RawSVG<String> {
+async fn get_counter(o_request_data: RequestData, path: String) -> Wrapper {
     // let s_ip = o_request_data.s_ip;
     let conn = Connection::open(DB_HOST).unwrap();
     let s_json = serde_json::to_string(&o_request_data.v_headers).unwrap();
@@ -172,8 +148,12 @@ async fn get_counter(o_request_data: RequestData, path: String) -> RawSVG<String
     </g>
 </svg>
 "###.replace("{NUMBER}", s_counter_fromated.as_str());
-    RawSVG(s_counter)
+
+    let oW = Wrapper { value: s_counter };
+
+    return oW;
 }
+
 
 #[get("/statistics_self")]
 async fn get_statistics_self() -> content::RawHtml<String> {
