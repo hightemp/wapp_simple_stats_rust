@@ -112,13 +112,13 @@ async fn get_counter(o_request_data: RequestData, path: String) -> Wrapper {
     conn.execute(
         "INSERT INTO visitors (path, ip, json) VALUES (?, ?, ?)",
         (
-            path, 
+            path.clone(), 
             o_request_data.s_ip, 
             s_json
         ),
     );
 
-    let i_row_count: i64 = conn.query_row("SELECT COUNT(*) as c FROM visitors ORDER BY timestamp DESC", [], |row| { row.get(0) }).unwrap();
+    let i_row_count: i64 = conn.query_row("SELECT COUNT(*) as c FROM visitors WHERE path = ? ORDER BY timestamp DESC", [path.clone()], |row| { row.get(0) }).unwrap();
     
     let s_temp = i_row_count.to_string();
     let s_count = s_temp.as_str();
@@ -297,7 +297,7 @@ s_html = s_html + r###"
 .stat-table { border-bottom: 1px solid rgba(0,0,0,0.1); border-right: 1px solid rgba(0,0,0,0.1); }
 .raw-header, .raw {
 display: grid;
-grid-template-columns: 120px 120px 120px 1fr;
+grid-template-columns: 120px 200px 120px 1fr;
 }
 .raw-header .cell {
 font-weight: bold;
@@ -363,7 +363,7 @@ async fn get_statistics() -> content::RawHtml<String> {
 .stat-table { border-bottom: 1px solid rgba(0,0,0,0.1); border-right: 1px solid rgba(0,0,0,0.1); }
 .raw-header, .raw {
     display: grid;
-    grid-template-columns: 120px 1fr;
+    grid-template-columns: 200px 1fr;
 }
 .raw-header .cell {
     font-weight: bold;
