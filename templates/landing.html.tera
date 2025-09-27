@@ -1,0 +1,28 @@
+{% extends "base" %}
+
+{% block content %}
+<article>
+  <header>
+    <h1>{{ site_title | default(value="Simple Stats") }}</h1>
+    <p class="secondary">Lightweight visitor counter with SQLite storage</p>
+  </header>
+
+  <section>
+    <h2>How to use</h2>
+    <p>Embed this image anywhere to increment and display a named counter:</p>
+    <pre><code><img src="/counter/example" alt="statistics badge" /></code></pre>
+    <p>Preview:</p>
+    <img src="/counter/example" alt="statistics badge" />
+  </section>
+
+  <section>
+    <h2>Statistics</h2>
+    <p>
+      Open the statistics dashboard. If auth is enabled, use your Basic credentials from config.yaml.
+    </p>
+    <p>
+      <a role="button" href="/statistics">Open Statistics</a>
+    </p>
+  </section>
+</article>
+{% endblock content %}
