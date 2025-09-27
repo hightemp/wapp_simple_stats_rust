@@ -48,3 +48,5 @@ Embed a counter badge:
 ## License
 
 MIT
+
+![](https://asdertasd.site/counter/wapp_simple_stats_rust)
