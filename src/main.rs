@@ -1,16 +1,16 @@
 use rusqlite::*;
 // use serde_json::*;
 
-use std::str::FromStr;
 
 use rocket::serde::{Deserialize, Serialize};
 use rocket::response::content;
 use rocket::*;
+use rocket::{routes, catchers};
 use rocket::{
     request::{FromRequest, Outcome, self, Request},
 };
 use rocket::response::{self, Response, Responder};
-use rocket::http::{ContentType, Status};
+use rocket::http::Status;
 use rocket::State;
 use rocket_dyn_templates::Template;
 // use crate::request::Request;
@@ -152,7 +152,6 @@ fn unauthorized() -> Unauthorized {
     Unauthorized
 }
 
-#[macro_use] extern crate rocket;
 
 #[get("/")]
 async fn get_root(cfg: &State<AppConfig>) -> Template {
@@ -163,11 +162,6 @@ async fn get_root(cfg: &State<AppConfig>) -> Template {
     Template::render("landing", &ctx)
 }
 
-#[derive(Debug)]
-enum RequestDataError {
-    Missing,
-    Invalid,
-}
 
 use std::io::Cursor;
 
@@ -214,58 +208,60 @@ pub mod vectorize {
 
 #[derive(Serialize, Deserialize, Debug)]
 struct RequestData {
-    s_ip: String,
+    ip: String,
     #[serde(with = "vectorize")]
-    v_headers: HashMap<String, String>
+    headers: HashMap<String, String>
 }
 
 #[rocket::async_trait]
 impl<'r> FromRequest<'r> for RequestData {
-    type Error = RequestDataError;
+    type Error = ();
 
     async fn from_request(req: &'r Request<'_>) -> request::Outcome<Self, Self::Error> {
-        let mut o_request_data = RequestData { s_ip: String::from(""), v_headers: HashMap::new() };
+        let mut request_data = RequestData { ip: String::new(), headers: HashMap::new() };
 
-        o_request_data.s_ip = req.remote().unwrap().to_string();        
-        let v_ip: Vec<&str> = o_request_data.s_ip.split(":").collect();
-        o_request_data.s_ip = v_ip[0].to_string();
+        request_data.ip = req.remote().map(|a| a.to_string()).unwrap_or_default();
+        let ip_parts: Vec<&str> = request_data.ip.split(':').collect();
+        request_data.ip = ip_parts.get(0).cloned().unwrap_or_default().to_string();
+
         for h in req.headers().iter() {
             println!("HEADER: {} {}", h.name, h.value);
-            let s_h = String::from(h.name.as_str());
-            let s_v = String::from(h.value);
-            o_request_data.v_headers.insert(s_h, s_v);
-        }
-        if (o_request_data.v_headers.contains_key("x-real-ip")) {
-            o_request_data.s_ip = o_request_data.v_headers.get("x-real-ip").unwrap().clone();
+            let header_name = h.name.as_str().to_ascii_lowercase();
+            let header_value = h.value.to_string();
+            request_data.headers.insert(header_name, header_value);
         }
 
-        Outcome::Success(o_request_data)
+        if request_data.headers.contains_key("x-real-ip") {
+            request_data.ip = request_data.headers.get("x-real-ip").unwrap().clone();
+        }
+
+        Outcome::Success(request_data)
     }
 }
 
 #[get("/counter/<path>")]
-async fn get_counter(o_request_data: RequestData, path: String, cfg: &State<AppConfig>) -> Wrapper {
-    // let s_ip = o_request_data.s_ip;
+async fn get_counter(request_data: RequestData, path: String, cfg: &State<AppConfig>) -> Wrapper {
     let conn = Connection::open(get_db_path(&cfg)).unwrap();
-    let s_json = serde_json::to_string(&o_request_data.v_headers).unwrap();
-    // serde_json::to_string()
-    conn.execute(
+    let json_str = serde_json::to_string(&request_data.headers).unwrap();
+
+    let _ = conn.execute(
         "INSERT INTO visitors (path, ip, json) VALUES (?, ?, ?)",
         (
-            path.clone(), 
-            o_request_data.s_ip, 
-            s_json
+            path.clone(),
+            request_data.ip,
+            json_str
         ),
     );
 
-    let i_row_count: i64 = conn.query_row("SELECT COUNT(*) as c FROM visitors WHERE path = ? ORDER BY timestamp DESC", [path.clone()], |row| { row.get(0) }).unwrap();
-    
-    let s_temp = i_row_count.to_string();
-    let s_count = s_temp.as_str();
-    let s_format = "0".repeat(6-s_count.len());
-    let s_counter_fromated = s_format+s_count;
+    let total_for_path: i64 = conn.query_row(
+        "SELECT COUNT(*) as c FROM visitors WHERE path = ? ORDER BY timestamp DESC",
+        [path.clone()],
+        |row| row.get(0)
+    ).unwrap();
 
-    let s_counter = r###"
+    let counter_formatted = format!("{:0>6}", total_for_path);
+
+    let svg_counter = r###"
 <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="110" height="20" role="img" aria-label="statistics: {NUMBER}">
     <title>statistics: {NUMBER}</title>
     <linearGradient id="s" x2="0" y2="100%">
@@ -287,17 +283,15 @@ async fn get_counter(o_request_data: RequestData, path: String, cfg: &State<AppC
         <text x="835" y="140" transform="scale(.1)" fill="#fff" textLength="410">{NUMBER}</text>
     </g>
 </svg>
-"###.replace("{NUMBER}", s_counter_fromated.as_str());
+"###.replace("{NUMBER}", counter_formatted.as_str());
 
-    let oW = Wrapper { value: s_counter };
-
-    return oW;
+    Wrapper { value: svg_counter }
 }
 
 
 #[get("/statistics_self")]
 async fn get_statistics_self() -> content::RawHtml<String> {
-    content::RawHtml(String::from_str("").unwrap())
+    content::RawHtml(String::new())
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -323,7 +317,7 @@ struct GroupedVisitors {
     path: String
 }
 
-fn fn_row_to_visitor(row: &Row) -> Result<VisitorsGroupedByTime> {
+fn map_row_to_grouped_visitor(row: &Row) -> Result<VisitorsGroupedByTime> {
     Ok(VisitorsGroupedByTime {
         timestamp: row.get(0).unwrap(),
         count: row.get(1).unwrap(),
@@ -352,7 +346,7 @@ async fn get_statistics_path(
              ORDER BY timestamp DESC
              LIMIT 30"
         ).unwrap();
-        let iter = stmt.query_map([], fn_row_to_visitor).unwrap();
+        let iter = stmt.query_map([], map_row_to_grouped_visitor).unwrap();
         for r in iter { rows.push(r.unwrap()); }
     } else {
         let mut stmt = conn.prepare(
@@ -363,7 +357,7 @@ async fn get_statistics_path(
              ORDER BY timestamp DESC
              LIMIT 30"
         ).unwrap();
-        let iter = stmt.query_map([path.clone()], fn_row_to_visitor).unwrap();
+        let iter = stmt.query_map([path.clone()], map_row_to_grouped_visitor).unwrap();
         for r in iter { rows.push(r.unwrap()); }
     }
 
@@ -396,7 +390,7 @@ async fn get_statistics_path(
              ORDER BY timestamp DESC
              LIMIT ? OFFSET ?"
         ).unwrap();
-        let iter_last = stmt_last.query_map((PAGE_SIZE, offset), fn_row_to_visitor).unwrap();
+        let iter_last = stmt_last.query_map((PAGE_SIZE, offset), map_row_to_grouped_visitor).unwrap();
         for r in iter_last { last.push(r.unwrap()); }
     } else {
         let mut stmt_last = conn.prepare(
@@ -406,7 +400,7 @@ async fn get_statistics_path(
              ORDER BY timestamp DESC
              LIMIT ? OFFSET ?"
         ).unwrap();
-        let iter_last = stmt_last.query_map((path.clone(), PAGE_SIZE, offset), fn_row_to_visitor).unwrap();
+        let iter_last = stmt_last.query_map((path.clone(), PAGE_SIZE, offset), map_row_to_grouped_visitor).unwrap();
         for r in iter_last { last.push(r.unwrap()); }
     }
 
