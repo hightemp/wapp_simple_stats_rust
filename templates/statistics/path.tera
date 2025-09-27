@@ -1,0 +1,75 @@
+{% extends "base" %}
+
+{% block content %}
+<article>
+  <header>
+    <h1>Statistics {% if path == "__all__" %}for ALL{% else %}for "{{ path }}"{% endif %}</h1>
+    <p class="secondary">Daily visits and recent activity</p>
+  </header>
+
+  <section>
+    <h2>Daily visits</h2>
+    <canvas id="visitsChart" height="120"></canvas>
+  </section>
+
+  <section>
+    <h2>Last 10</h2>
+    <div class="stat-table">
+      <table role="grid">
+        <thead>
+          <tr>
+            <th style="white-space:nowrap;">Timestamp</th>
+            <th>Path</th>
+            <th>IP</th>
+            <th>Headers JSON</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for v in last %}
+          <tr>
+            <td style="white-space:nowrap;">{{ v.timestamp }}</td>
+            <td>{{ v.path }}</td>
+            <td>{{ v.ip }}</td>
+            <td><pre>{{ v.json }}</pre></td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+</article>
+
+<script>
+const labels = {{ labels | json_encode | safe }};
+const counts = {{ counts | json_encode | safe }};
+
+const ctx = document.getElementById('visitsChart').getContext('2d');
+new Chart(ctx, {
+  type: 'line',
+  data: {
+    labels,
+    datasets: [{
+      label: 'Daily visits',
+      data: counts,
+      borderColor: 'rgb(79, 70, 229)',
+      backgroundColor: 'rgba(79, 70, 229, 0.15)',
+      tension: 0.25,
+      fill: true,
+      pointRadius: 2
+    }]
+  },
+  options: {
+    responsive: true,
+    maintainAspectRatio: true,
+    plugins: {
+      legend: { display: false },
+      tooltip: { intersect: false, mode: 'index' }
+    },
+    scales: {
+      x: { grid: { display: false } },
+      y: { beginAtZero: true, ticks: { precision: 0 } }
+    }
+  }
+});
+</script>
+{% endblock content %}

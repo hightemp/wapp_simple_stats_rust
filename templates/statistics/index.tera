@@ -1,0 +1,36 @@
+{% extends "base" %}
+
+{% block content %}
+<article>
+  <header>
+    <h1>Statistics</h1>
+    <p class="secondary">Overview of all counters</p>
+  </header>
+
+  <section>
+    <p>Total visits: <span class="badge">{{ total }}</span></p>
+    <div class="stat-table">
+      <table role="grid">
+        <thead>
+          <tr>
+            <th>Path</th>
+            <th style="width: 1%;">Visitors</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><a href="/statistics/__all__">ALL</a></td>
+            <td>{{ total }}</td>
+          </tr>
+          {% for e in entries %}
+          <tr>
+            <td><a href="/statistics/{{ e.path }}">{{ e.path }}</a></td>
+            <td>{{ e.count }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+</article>
+{% endblock content %}

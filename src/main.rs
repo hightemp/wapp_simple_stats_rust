@@ -10,17 +10,157 @@ use rocket::{
     request::{FromRequest, Outcome, self, Request},
 };
 use rocket::response::{self, Response, Responder};
-use rocket::http::ContentType;
+use rocket::http::{ContentType, Status};
+use rocket::State;
+use rocket_dyn_templates::Template;
 // use crate::request::Request;
 use std::collections::HashMap;
+use std::fs;
+use base64::{engine::general_purpose, Engine as _};
 
-const DB_HOST: &str = "./wapp_simple_stats_rust.db";
+use serde_json::json;
+const DEFAULT_DB_PATH: &str = "./wapp_simple_stats_rust.db";
+const PAGE_SIZE: i64 = 10;
+
+// ----------------------------------------------------------------------------
+// App Config (loaded from config.yaml)
+// ----------------------------------------------------------------------------
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+struct Site {
+    title: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+struct Theme {
+    auto: bool,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+struct Database {
+    path: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+struct Basic {
+    username: String,
+    password: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+struct Auth {
+    enabled: bool,
+    basic: Basic,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+struct AppConfig {
+    site: Site,
+    theme: Theme,
+    auth: Auth,
+    database: Option<Database>,
+}
+
+fn load_config() -> AppConfig {
+    let path = "config.yaml";
+    if let Ok(s) = fs::read_to_string(path) {
+        if let Ok(cfg) = serde_yaml::from_str::<AppConfig>(&s) {
+            return cfg;
+        }
+    }
+    // Defaults if no config.yaml
+    AppConfig {
+        site: Site {
+            title: "Simple Stats".to_string(),
+        },
+        theme: Theme { auto: true },
+        auth: Auth {
+            enabled: false,
+            basic: Basic {
+                username: "admin".to_string(),
+                password: "password".to_string(),
+            },
+        },
+        database: Some(Database {
+            path: DEFAULT_DB_PATH.to_string(),
+        }),
+    }
+}
+
+fn get_db_path(cfg: &AppConfig) -> &str {
+    if let Some(db) = &cfg.database {
+        db.path.as_str()
+    } else {
+        DEFAULT_DB_PATH
+    }
+}
+
+// ----------------------------------------------------------------------------
+// Basic Auth Guard and 401 catcher
+// ----------------------------------------------------------------------------
+
+pub struct BasicAuthGuard;
+
+#[rocket::async_trait]
+impl<'r> FromRequest<'r> for BasicAuthGuard {
+    type Error = ();
+
+    async fn from_request(req: &'r Request<'_>) -> request::Outcome<Self, Self::Error> {
+        let cfg = req.rocket().state::<AppConfig>();
+        if let Some(cfg) = cfg {
+            if !cfg.auth.enabled {
+                return Outcome::Success(BasicAuthGuard);
+            }
+
+            if let Some(header) = req.headers().get_one("Authorization") {
+                let prefix = "Basic ";
+                if header.starts_with(prefix) {
+                    let b64 = &header[prefix.len()..];
+                    if let Ok(bytes) = general_purpose::STANDARD.decode(b64) {
+                        if let Ok(creds) = String::from_utf8(bytes) {
+                            let mut it = creds.splitn(2, ':');
+                            let u = it.next().unwrap_or("");
+                            let p = it.next().unwrap_or("");
+                            if u == cfg.auth.basic.username && p == cfg.auth.basic.password {
+                                return Outcome::Success(BasicAuthGuard);
+                            }
+                        }
+                    }
+                }
+            }
+            return Outcome::Failure((Status::Unauthorized, ()));
+        }
+        // If no config stored, allow by default
+        Outcome::Success(BasicAuthGuard)
+    }
+}
+
+struct Unauthorized;
+
+impl<'r> Responder<'r, 'static> for Unauthorized {
+    fn respond_to(self, _: &Request<'_>) -> response::Result<'static> {
+        Response::build()
+            .status(Status::Unauthorized)
+            .raw_header("WWW-Authenticate", "Basic realm=\"Restricted\"")
+            .sized_body(0, std::io::Cursor::new(String::new()))
+            .ok()
+    }
+}
+
+#[catch(401)]
+fn unauthorized() -> Unauthorized {
+    Unauthorized
+}
 
 #[macro_use] extern crate rocket;
 
 #[get("/")]
-async fn get_root() -> content::RawHtml<String> {
-    content::RawHtml(String::from_str("<h1>Auth required</h1>").unwrap())
+async fn get_root(cfg: &State<AppConfig>) -> Template {
+    let ctx = json!({
+        "site_title": cfg.site.title,
+        "page_title": "Welcome",
+    });
+    Template::render("landing", &ctx)
 }
 
 #[derive(Debug)]
@@ -104,9 +244,9 @@ impl<'r> FromRequest<'r> for RequestData {
 }
 
 #[get("/counter/<path>")]
-async fn get_counter(o_request_data: RequestData, path: String) -> Wrapper {
+async fn get_counter(o_request_data: RequestData, path: String, cfg: &State<AppConfig>) -> Wrapper {
     // let s_ip = o_request_data.s_ip;
-    let conn = Connection::open(DB_HOST).unwrap();
+    let conn = Connection::open(get_db_path(&cfg)).unwrap();
     let s_json = serde_json::to_string(&o_request_data.v_headers).unwrap();
     // serde_json::to_string()
     conn.execute(
@@ -193,195 +333,168 @@ fn fn_row_to_visitor(row: &Row) -> Result<VisitorsGroupedByTime> {
     })
 }
 
-#[get("/statistics/<path>")]
-async fn get_statistics_path(path: String) -> content::RawHtml<String> {
-    let conn = Connection::open(DB_HOST).unwrap();
+#[get("/statistics/<path>?<page>")]
+async fn get_statistics_path(
+    _auth: BasicAuthGuard,
+    path: String,
+    page: Option<usize>,
+    cfg: &State<AppConfig>
+) -> Template {
+    let conn = Connection::open(get_db_path(&cfg)).unwrap();
 
-    let mut s_html = r###"
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta http-equiv="X-UA-Compatible" content="IE=edge">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Statistics</title>
-</head>
-<body>
-"###.to_string();
-    
-
-
-s_html = s_html + r###"
-<h4>Count</h4>
-<div class="stat-table">
-    <div class="raw-header">
-        <div class="cell">Timestamp</div>
-        <div class="cell">Count</div>
-        <div class="cell">Path</div>
-        <div class="cell"></div>
-    </div>
-"###;
-
-let mut stmt;
-let visitors_iter;
-if path=="__all__" {
-    stmt = conn.prepare("SELECT strftime('%d-%m-%Y',timestamp) AS t, COUNT(*) AS c, path, ip, json FROM visitors GROUP BY strftime('%d-%m-%Y',timestamp) ORDER BY timestamp DESC LIMIT 30").unwrap();
-    visitors_iter = stmt.query_map(
-        [], 
-        fn_row_to_visitor
-    ).unwrap();
-} else {
-    stmt = conn.prepare("SELECT strftime('%d-%m-%Y',timestamp) AS t, COUNT(*) AS c, path, ip, json FROM visitors WHERE path=? GROUP BY strftime('%d-%m-%Y',timestamp) ORDER BY timestamp DESC LIMIT 30").unwrap();
-    visitors_iter = stmt.query_map(
-        [path.clone()], 
-        fn_row_to_visitor
-    ).unwrap();
-}
-
-for visitor_result in visitors_iter {
-    s_html = s_html + r#"<div class="raw">"#;
-    let v = visitor_result.unwrap();
-    s_html = s_html + r#"<div class="cell">"#+v.timestamp.as_str()+r#"</div>"#;
-    s_html = s_html + r#"<div class="cell">"#+v.count.to_string().as_str()+r#"</div>"#;
-    s_html = s_html + r#"<div class="cell">"#+v.path.as_str()+r#"</div>"#;
-    s_html = s_html + r#"<div class="cell"></div>"#;
-    s_html = s_html + "</div>";
-}
-
-s_html = s_html + r###"
-</div>"###;
-
-
-    s_html = s_html + r###"
-<h4>Last 10</h4>
-<div class="stat-table">
-    <div class="raw-header">
-        <div class="cell">Timestamp</div>
-        <div class="cell">Path</div>
-        <div class="cell">IP</div>
-        <div class="cell">JSON</div>
-    </div>
-"###;
-
-    let mut stmt_last;
-    let visitors_iter_last;
-    if path=="__all__" {
-        stmt_last = conn.prepare("SELECT strftime('%d-%m-%Y %H:%M:%S',timestamp) AS t, 1, path, ip, json FROM visitors ORDER BY timestamp DESC LIMIT 10").unwrap();
-        visitors_iter_last = stmt_last.query_map(
-            [], 
-            fn_row_to_visitor
+    // Daily aggregation (last 30 days), optionally filtered by path
+    let mut rows: Vec<VisitorsGroupedByTime> = Vec::new();
+    if path == "__all__" {
+        let mut stmt = conn.prepare(
+            "SELECT strftime('%Y-%m-%d',timestamp) AS t, COUNT(*) AS c, path, ip, json
+             FROM visitors
+             GROUP BY strftime('%Y-%m-%d',timestamp)
+             ORDER BY timestamp DESC
+             LIMIT 30"
         ).unwrap();
+        let iter = stmt.query_map([], fn_row_to_visitor).unwrap();
+        for r in iter { rows.push(r.unwrap()); }
     } else {
-        stmt_last = conn.prepare("SELECT strftime('%d-%m-%Y %H:%M:%S',timestamp) AS t, 1, path, ip, json FROM visitors WHERE path=? ORDER BY timestamp DESC LIMIT 10").unwrap();
-        visitors_iter_last = stmt_last.query_map(
-            [path.clone()], 
-            fn_row_to_visitor
+        let mut stmt = conn.prepare(
+            "SELECT strftime('%Y-%m-%d',timestamp) AS t, COUNT(*) AS c, path, ip, json
+             FROM visitors
+             WHERE path=?
+             GROUP BY strftime('%Y-%m-%d',timestamp)
+             ORDER BY timestamp DESC
+             LIMIT 30"
         ).unwrap();
+        let iter = stmt.query_map([path.clone()], fn_row_to_visitor).unwrap();
+        for r in iter { rows.push(r.unwrap()); }
     }
 
-    for visitor_result in visitors_iter_last {
-        s_html = s_html + r#"<div class="raw">"#;
-        let v = visitor_result.unwrap();
-        s_html = s_html + r#"<div class="cell">"#+v.timestamp.as_str()+r#"</div>"#;
-        s_html = s_html + r#"<div class="cell">"#+v.path.as_str()+r#"</div>"#;
-        s_html = s_html + r#"<div class="cell">"#+v.ip.as_str()+r#"</div>"#;
-        s_html = s_html + r#"<div class="cell">"#+v.json.as_str()+"</div>";
-        s_html = s_html + "</div>";
+    // Reverse to chronological order for chart X axis
+    rows.reverse();
+    let labels: Vec<String> = rows.iter().map(|r| r.timestamp.clone()).collect();
+    let counts: Vec<i64> = rows.iter().map(|r| r.count).collect();
+
+    // Pagination
+    let current_page: i64 = page.unwrap_or(1).max(1) as i64;
+    let offset: i64 = (current_page - 1) * PAGE_SIZE;
+
+    let total_rows: i64 = if path == "__all__" {
+        conn.query_row("SELECT COUNT(*) FROM visitors", [], |o| o.get(0)).unwrap()
+    } else {
+        conn.query_row("SELECT COUNT(*) FROM visitors WHERE path = ?", [path.clone()], |o| o.get(0)).unwrap()
+    };
+    let total_pages: i64 = if total_rows == 0 { 1 } else { ((total_rows - 1) / PAGE_SIZE) + 1 };
+    let has_prev = current_page > 1;
+    let has_next = current_page < total_pages;
+    let prev_page = if has_prev { Some(current_page - 1) } else { None };
+    let next_page = if has_next { Some(current_page + 1) } else { None };
+
+    // Paginated visits list (10 per page)
+    let mut last: Vec<VisitorsGroupedByTime> = Vec::new();
+    if path == "__all__" {
+        let mut stmt_last = conn.prepare(
+            "SELECT strftime('%Y-%m-%d %H:%M:%S',timestamp) AS t, 1, path, ip, json
+             FROM visitors
+             ORDER BY timestamp DESC
+             LIMIT ? OFFSET ?"
+        ).unwrap();
+        let iter_last = stmt_last.query_map((PAGE_SIZE, offset), fn_row_to_visitor).unwrap();
+        for r in iter_last { last.push(r.unwrap()); }
+    } else {
+        let mut stmt_last = conn.prepare(
+            "SELECT strftime('%Y-%m-%d %H:%M:%S',timestamp) AS t, 1, path, ip, json
+             FROM visitors
+             WHERE path=?
+             ORDER BY timestamp DESC
+             LIMIT ? OFFSET ?"
+        ).unwrap();
+        let iter_last = stmt_last.query_map((path.clone(), PAGE_SIZE, offset), fn_row_to_visitor).unwrap();
+        for r in iter_last { last.push(r.unwrap()); }
     }
-    s_html = s_html + r###"
-</div>"###;
 
+    let ctx = json!({
+        "site_title": cfg.site.title,
+        "page_title": "Statistics",
+        "path": path,
+        "labels": labels,
+        "counts": counts,
+        "last": last,
+        "current_page": current_page,
+        "total_pages": total_pages,
+        "has_prev": has_prev,
+        "has_next": has_next,
+        "prev_page": prev_page,
+        "next_page": next_page
+    });
 
-    s_html = s_html + r###"
-<style>
-.stat-table { border-bottom: 1px solid rgba(0,0,0,0.1); border-right: 1px solid rgba(0,0,0,0.1); }
-.raw-header, .raw {
-display: grid;
-grid-template-columns: 120px 200px 120px 1fr;
+    Template::render("statistics/path", &ctx)
 }
-.raw-header .cell {
-font-weight: bold;
-background: #eee;
-}
-.cell { border-top: 1px solid rgba(0,0,0,0.1); border-left: 1px solid rgba(0,0,0,0.1); }
-.cell { padding: 5px; word-break: break-all; }
-</style>
-</body>
-</html>
-"###;
 
-return content::RawHtml(s_html);
+#[get("/statistics/recent")]
+async fn get_statistics_recent(_auth: BasicAuthGuard, cfg: &State<AppConfig>) -> Template {
+    let conn = Connection::open(get_db_path(&cfg)).unwrap();
+
+    let mut items: Vec<Visitors> = Vec::new();
+    let mut stmt = conn.prepare(
+        "SELECT strftime('%Y-%m-%d %H:%M:%S',timestamp) AS t, path, ip, json
+         FROM visitors
+         ORDER BY timestamp DESC
+         LIMIT 20"
+    ).unwrap();
+    let iter = stmt.query_map([], |row| {
+        Ok(Visitors {
+            timestamp: row.get(0).unwrap(),
+            path: row.get(1).unwrap(),
+            ip: row.get(2).unwrap(),
+            json: row.get(3).unwrap(),
+        })
+    }).unwrap();
+    for r in iter { items.push(r.unwrap()); }
+
+    let ctx = json!({
+        "site_title": cfg.site.title,
+        "page_title": "Recent visits",
+        "items": items
+    });
+
+    Template::render("statistics/recent", &ctx)
 }
 
 #[get("/statistics")]
-async fn get_statistics() -> content::RawHtml<String> {
-    let mut s_html = r###"
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta http-equiv="X-UA-Compatible" content="IE=edge">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Statistics</title>
-</head>
-<body>
-    <div class="stat-table">
-        <div class="raw-header">
-            <div class="cell">Path</div>
-            <div class="cell">Visitors</div>
-        </div>
-"###.to_string();
+async fn get_statistics(_auth: BasicAuthGuard, cfg: &State<AppConfig>) -> Template {
+    let conn = Connection::open(get_db_path(&cfg)).unwrap();
 
-    let conn = Connection::open(DB_HOST).unwrap();
+    let total: i64 = conn.query_row(
+        "SELECT COUNT(*) AS c FROM visitors",
+        [],
+        |o| o.get(0)
+    ).unwrap();
 
-    let mut i_all: i64 = conn.query_row("SELECT COUNT(*) AS c FROM visitors ORDER BY timestamp DESC", [], |o| { o.get(0) }).unwrap();
-
-    let mut stmt = conn.prepare("SELECT COUNT(*) AS c, path FROM visitors GROUP BY path ORDER BY timestamp DESC").unwrap();
-    let visitors_iter = stmt.query_map([], |row| {
+    let mut entries: Vec<GroupedVisitors> = Vec::new();
+    let mut stmt = conn.prepare(
+        "SELECT COUNT(*) AS c, path FROM visitors GROUP BY path ORDER BY c DESC"
+    ).unwrap();
+    let iter = stmt.query_map([], |row| {
         Ok(GroupedVisitors {
             count: row.get(0).unwrap(),
             path: row.get(1).unwrap()
         })
     }).unwrap();
-
-    s_html = s_html + r#"<div class="raw">"#;
-        s_html = s_html + r#"<div class="cell"><a href="/statistics/__all__">ALL</a></div>"#;
-        s_html = s_html + r#"<div class="cell">"#+i_all.to_string().as_str()+"</div>";
-    s_html = s_html + "</div>";
-    
-    for visitor_result in visitors_iter {
-        s_html = s_html + r#"<div class="raw">"#;
-        let v = visitor_result.unwrap();
-        s_html = s_html + r#"<div class="cell"><a href="/statistics/"#+v.path.as_str()+r#"">"#+v.path.as_str()+r#"</a></div>"#;
-        s_html = s_html + r#"<div class="cell">"#+v.count.to_string().as_str()+"</div>";
-        s_html = s_html + "</div>";
+    for r in iter {
+        entries.push(r.unwrap());
     }
 
-    s_html = s_html + r###"
-</div>
-<style>
-.stat-table { border-bottom: 1px solid rgba(0,0,0,0.1); border-right: 1px solid rgba(0,0,0,0.1); }
-.raw-header, .raw {
-    display: grid;
-    grid-template-columns: 200px 1fr;
-}
-.raw-header .cell {
-    font-weight: bold;
-    background: #eee;
-}
-.cell { border-top: 1px solid rgba(0,0,0,0.1); border-left: 1px solid rgba(0,0,0,0.1); }
-.cell { padding: 5px; word-break: break-all; }
-</style>
-</body>
-</html>
-"###;
+    let ctx = json!({
+        "site_title": cfg.site.title,
+        "page_title": "Statistics",
+        "total": total,
+        "entries": entries
+    });
 
-    return content::RawHtml(s_html);
+    Template::render("statistics/index", &ctx)
 }
 
 #[get("/statistics_self_full_json")]
-async fn get_statistics_self_full_json() -> content::RawJson<String> {
-    let conn = Connection::open(DB_HOST).unwrap();
+async fn get_statistics_self_full_json(cfg: &State<AppConfig>) -> content::RawJson<String> {
+    let conn = Connection::open(get_db_path(&cfg)).unwrap();
 
     let mut stmt = conn.prepare("SELECT timestamp, path, ip, json FROM visitors ORDER BY timestamp DESC").unwrap();
     let visitors_iter = stmt.query_map([], |row| {
@@ -401,8 +514,8 @@ async fn get_statistics_self_full_json() -> content::RawJson<String> {
     return content::RawJson(s_json);
 }
 
-fn create_database() {
-    let conn = Connection::open(DB_HOST).unwrap();
+fn create_database(cfg: &AppConfig) {
+    let conn = Connection::open(get_db_path(cfg)).unwrap();
 
     conn.execute(
         "CREATE TABLE IF NOT EXISTS visitors (
@@ -418,8 +531,11 @@ fn create_database() {
 
 #[rocket::main]
 pub async fn main() -> Result<(), rocket::Error> {
-    create_database();
+    let cfg = load_config();
+    create_database(&cfg);
     let _rocket = rocket::build()
+        .manage(cfg)
+        .attach(Template::fairing())
         .mount(
             "/",
             routes![
@@ -427,10 +543,12 @@ pub async fn main() -> Result<(), rocket::Error> {
                 get_root,
                 get_statistics,
                 get_statistics_path,
+                get_statistics_recent,
                 get_statistics_self,
                 get_statistics_self_full_json
             ]
         )
+        .register("/", catchers![unauthorized])
         .launch().await?;
     Ok(())
 }

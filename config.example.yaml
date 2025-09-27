@@ -1,0 +1,12 @@
+# Example config for wapp_simple_stats_rust
+site:
+  title: "Simple Stats"
+theme:
+  auto: true  # auto-select light/dark theme
+auth:
+  enabled: true
+  basic:
+    username: "admin"
+    password: "password"
+database:
+  path: "./wapp_simple_stats_rust.db"
