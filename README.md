@@ -4,7 +4,7 @@ Lightweight web counter written in Rust. It stores hits in SQLite and exposes:
 - a badge endpoint you can embed anywhere to increment and display a named counter
 - a protected statistics dashboard with charts and tables
 
-UI is rendered with Tera templates and styled via Pico.css (CDN). Charts are rendered with Chart.js (CDN). Supports automatic light/dark theme selection.
+UI is rendered with Tera templates and styled via bootstrap.css (CDN). Charts are rendered with Chart.js (CDN). Supports automatic light/dark theme selection.
 
 ## Features
 
