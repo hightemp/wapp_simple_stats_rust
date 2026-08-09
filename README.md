@@ -15,6 +15,30 @@ Lightweight, self-hosted web counter written in Rust. It stores visits in SQLite
 - Security headers, strict Content Security Policy and protected JSON export
 - SQLite WAL mode and indexes for concurrent reads and faster reports
 
+## Project structure
+
+```text
+src/
+├── main.rs                    # minimal binary entry point
+├── lib.rs                     # application bootstrap and Rocket assembly
+├── config.rs                  # YAML/environment configuration
+├── database.rs                # SQLite initialization and connections
+├── models.rs                  # template and export data models
+├── utils.rs                   # URL and display helpers
+├── routes/
+│   ├── counter.rs             # public SVG counter endpoint
+│   ├── home.rs                # landing page
+│   └── statistics/
+│       ├── mod.rs             # statistics HTTP handlers
+│       └── queries.rs         # statistics SQL queries
+└── security/
+    ├── auth.rs                # Basic Auth guard and 401 response
+    ├── headers.rs             # security response headers
+    └── request_metadata.rs    # safe request metadata collection
+```
+
+Unit tests live next to the code they cover. HTTP handlers and SQL access are kept separate so that either layer can evolve without recreating a monolithic entry point.
+
 ## Configuration
 
 Copy the example configuration and replace the example password:
