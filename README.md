@@ -15,6 +15,16 @@ Lightweight, self-hosted web counter written in Rust. It stores visits in SQLite
 - Security headers, strict Content Security Policy and protected JSON export
 - SQLite WAL mode and indexes for concurrent reads and faster reports
 
+## Screenshots
+
+### Dashboard overview
+
+![Dashboard overview](images/2026-08-09_overview.png)
+
+### All visits
+
+![All visits](images/2026-08-09_all-visits.png)
+
 ## Project structure
 
 ```text
