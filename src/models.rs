@@ -28,11 +28,11 @@ impl VisitView {
         let metadata: BTreeMap<String, String> =
             serde_json::from_str(&raw_metadata).unwrap_or_default();
         let user_agent = metadata.get("user-agent").map_or_else(
-            || "Не указан".to_owned(),
+            || "Not provided".to_owned(),
             |value| truncate_chars(value, 240),
         );
         let referer = metadata.get("referer").map_or_else(
-            || "Прямой переход".to_owned(),
+            || "Direct visit".to_owned(),
             |value| truncate_chars(strip_url_query(value), 240),
         );
         let language = metadata

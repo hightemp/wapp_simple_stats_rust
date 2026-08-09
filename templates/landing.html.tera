@@ -3,37 +3,37 @@
 {% block content %}
 <section class="landing-hero">
   <div>
-    <span class="eyebrow">Лёгкая веб-аналитика</span>
-    <h1>Счётчик посещений,<br>который остаётся вашим</h1>
-    <p class="lead">Минимальное приложение на Rust и SQLite: собирает только нужные данные и показывает их в удобной панели.</p>
+    <span class="eyebrow">Lightweight web analytics</span>
+    <h1>A visitor counter<br>that stays yours</h1>
+    <p class="lead">A minimal Rust and SQLite app that collects only essential data and presents it in a clear dashboard.</p>
     <div class="button-row">
-      <a class="button button-primary" href="/statistics">Открыть статистику</a>
-      <a class="button button-secondary" href="/statistics/recent">Последние посещения</a>
+      <a class="button button-primary" href="/statistics">Open dashboard</a>
+      <a class="button button-secondary" href="/statistics/recent">Recent visits</a>
     </div>
   </div>
   <div class="landing-visual" aria-hidden="true">
     <div class="visual-card visual-card-main">
-      <span class="visual-label">Посещения</span>
+      <span class="visual-label">Visits</span>
       <strong>12 840</strong>
       <span class="trend-up">↗ 18,4%</span>
       <svg viewBox="0 0 320 100"><path d="M0 83 C35 76 42 52 72 59 S118 88 151 48 S197 20 224 39 S276 62 320 10"/></svg>
     </div>
     <div class="visual-card visual-card-small">
       <span class="status-dot"></span>
-      <span>Данные обновляются</span>
+      <span>Live data</span>
     </div>
   </div>
 </section>
 
 <section class="setup-panel panel">
   <div>
-    <span class="eyebrow">Быстрый старт</span>
-    <h2>Одна строка для подключения</h2>
-    <p class="muted">Добавьте изображение на нужную страницу. Каждый запрос увеличит её счётчик.</p>
+    <span class="eyebrow">Quick start</span>
+    <h2>One line to get started</h2>
+    <p class="muted">Embed the image on any page. Each request increments its counter.</p>
   </div>
   <div class="code-block">
     <code>&lt;img src="https://your-host/counter/my-page" alt="statistics"&gt;</code>
-    <button class="copy-button" type="button" data-copy='&lt;img src="https://your-host/counter/my-page" alt="statistics"&gt;'>Копировать</button>
+    <button class="copy-button" type="button" data-copy='&lt;img src="https://your-host/counter/my-page" alt="statistics"&gt;'>Copy</button>
   </div>
 </section>
 {% endblock content %}

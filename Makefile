@@ -8,72 +8,72 @@ DEV_PORT ?= 8000
 .PHONY: help config require-config dev watch run build release-check release \
 	fmt fmt-check test lint check check-fast audit update deps docs clean
 
-help: ## Показать список доступных команд
-	@awk 'BEGIN {FS = ":.*## "; printf "Использование: make <команда>\n\nКоманды:\n"} /^[a-zA-Z_-]+:.*## / {printf "  %-16s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
-	@printf '\nПараметры dev-сервера: DEV_ADDRESS=%s DEV_PORT=%s\n' "$(DEV_ADDRESS)" "$(DEV_PORT)"
+help: ## Show available targets
+	@awk 'BEGIN {FS = ":.*## "; printf "Usage: make <target>\n\nTargets:\n"} /^[a-zA-Z_-]+:.*## / {printf "  %-16s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
+	@printf '\nDevelopment server options: DEV_ADDRESS=%s DEV_PORT=%s\n' "$(DEV_ADDRESS)" "$(DEV_PORT)"
 
-config: ## Создать config.yaml из примера, не перезаписывая существующий
+config: ## Create config.yaml from the example without overwriting it
 	@if [[ -e config.yaml ]]; then \
-		printf '%s\n' 'config.yaml уже существует'; \
+		printf '%s\n' 'config.yaml already exists'; \
 	else \
 		cp config.example.yaml config.yaml; \
-		printf '%s\n' 'Создан config.yaml — замените пример пароля перед запуском'; \
+		printf '%s\n' 'Created config.yaml — replace the example password before starting'; \
 	fi
 
 require-config:
 	@if [[ ! -f config.yaml ]]; then \
-		printf '%s\n' 'Не найден config.yaml. Выполните make config и настройте пароль.' >&2; \
+		printf '%s\n' 'config.yaml was not found. Run make config and configure the password.' >&2; \
 		exit 1; \
 	fi
 
-dev: require-config ## Запустить dev-сервер (DEV_ADDRESS и DEV_PORT можно переопределить)
+dev: require-config ## Start the development server (DEV_ADDRESS and DEV_PORT are configurable)
 	ROCKET_ADDRESS="$(DEV_ADDRESS)" ROCKET_PORT="$(DEV_PORT)" $(CARGO) run --locked
 
-watch: require-config ## Перезапускать dev-сервер при изменениях (требует cargo-watch)
-	@command -v cargo-watch >/dev/null 2>&1 || { printf '%s\n' 'Установите cargo-watch: cargo install cargo-watch --locked' >&2; exit 1; }
+watch: require-config ## Restart the development server on changes (requires cargo-watch)
+	@command -v cargo-watch >/dev/null 2>&1 || { printf '%s\n' 'Install cargo-watch: cargo install cargo-watch --locked' >&2; exit 1; }
 	ROCKET_ADDRESS="$(DEV_ADDRESS)" ROCKET_PORT="$(DEV_PORT)" cargo watch -x 'run --locked'
 
-run: require-config ## Запустить оптимизированную release-версию
+run: require-config ## Start the optimized release build
 	ROCKET_ADDRESS="$(DEV_ADDRESS)" ROCKET_PORT="$(DEV_PORT)" $(CARGO) run --release --locked
 
-build: ## Собрать debug-версию
+build: ## Build the debug version
 	$(CARGO) build --locked
 
-release-check: ## Проверить компиляцию release-версии
+release-check: ## Check release compilation
 	$(CARGO) check --release --locked
 
-release: ## Собрать release-бинарник
+release: ## Build the release binary
 	$(CARGO) build --release --locked
 
-fmt: ## Отформатировать Rust-код
+fmt: ## Format Rust code
 	$(CARGO) fmt
 
-fmt-check: ## Проверить форматирование без изменения файлов
+fmt-check: ## Check formatting without modifying files
 	$(CARGO) fmt -- --check
 
-test: ## Запустить тесты
+test: ## Run tests
 	$(CARGO) test --locked
 
-lint: ## Запустить Clippy и считать предупреждения ошибками
+lint: ## Run Clippy and treat warnings as errors
 	$(CARGO) clippy --all-targets --all-features --locked -- -D warnings
 
-check-fast: fmt-check ## Быстро проверить форматирование и компиляцию
+check-fast: fmt-check ## Quickly check formatting and compilation
 	$(CARGO) check --locked
 
-check: fmt-check test lint ## Выполнить все основные проверки
+check: fmt-check test lint ## Run all primary checks
 
-audit: ## Проверить зависимости через RustSec (требует cargo-audit)
-	@command -v cargo-audit >/dev/null 2>&1 || { printf '%s\n' 'Установите cargo-audit: cargo install cargo-audit --locked' >&2; exit 1; }
+audit: ## Audit dependencies via RustSec (requires cargo-audit)
+	@command -v cargo-audit >/dev/null 2>&1 || { printf '%s\n' 'Install cargo-audit: cargo install cargo-audit --locked' >&2; exit 1; }
 	$(CARGO) audit
 
-update: ## Обновить совместимые версии в Cargo.lock
+update: ## Update compatible versions in Cargo.lock
 	$(CARGO) update
 
-deps: ## Показать дерево прямых зависимостей
+deps: ## Show the direct dependency tree
 	$(CARGO) tree -e normal --depth 1
 
-docs: ## Собрать документацию без зависимостей
+docs: ## Build documentation without dependencies
 	$(CARGO) doc --no-deps --locked
 
-clean: ## Удалить артефакты сборки Cargo
+clean: ## Remove Cargo build artifacts
 	$(CARGO) clean

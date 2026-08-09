@@ -3,51 +3,51 @@
 {% block content %}
 <header class="page-heading">
   <div>
-    <span class="eyebrow">Сводка</span>
-    <h1>Статистика</h1>
-    <p>Главные показатели и распределение трафика по страницам.</p>
+    <span class="eyebrow">Overview</span>
+    <h1>Statistics</h1>
+    <p>Key metrics and traffic distribution across tracked pages.</p>
   </div>
-  <a class="button button-secondary" href="/statistics/__all__">Все посещения <span aria-hidden="true">→</span></a>
+  <a class="button button-secondary" href="/statistics/__all__">All visits <span aria-hidden="true">→</span></a>
 </header>
 
-<section class="metric-grid" aria-label="Ключевые показатели">
+<section class="metric-grid" aria-label="Key metrics">
   <article class="metric-card metric-accent">
     <div class="metric-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 18V9m6 9V5m6 13v-7m4 7H2"/></svg></div>
-    <span class="metric-label">Всего посещений</span>
+    <span class="metric-label">Total visits</span>
     <strong>{{ total }}</strong>
-    <span class="metric-note">за всё время</span>
+    <span class="metric-note">all time</span>
   </article>
   <article class="metric-card">
     <div class="metric-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h10M4 18h7"/></svg></div>
-    <span class="metric-label">Отслеживается</span>
+    <span class="metric-label">Tracked pages</span>
     <strong>{{ unique_paths }}</strong>
-    <span class="metric-note">страниц и счётчиков</span>
+    <span class="metric-note">pages and counters</span>
   </article>
   <article class="metric-card">
     <div class="metric-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M7 3v3m10-3v3M4 9h16M5 5h14a1 1 0 0 1 1 1v14H4V6a1 1 0 0 1 1-1Z"/></svg></div>
-    <span class="metric-label">Сегодня</span>
+    <span class="metric-label">Today</span>
     <strong>{{ today }}</strong>
-    <span class="metric-note">посещений с 00:00</span>
+    <span class="metric-note">visits since midnight</span>
   </article>
   <article class="metric-card">
     <div class="metric-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="m4 15 5-5 4 4 7-8m0 0v5m0-5h-5"/></svg></div>
-    <span class="metric-label">Последние 7 дней</span>
+    <span class="metric-label">Last 7 days</span>
     <strong>{{ week }}</strong>
-    <span class="metric-note">включая сегодня</span>
+    <span class="metric-note">including today</span>
   </article>
 </section>
 
 <section class="panel paths-panel">
   <header class="panel-header panel-header-toolbar">
     <div>
-      <h2>Страницы</h2>
-      <p>От самых посещаемых к менее активным</p>
+      <h2>Pages</h2>
+      <p>Most visited first</p>
     </div>
     {% if entries | length > 0 %}
     <label class="search-box">
-      <span class="sr-only">Найти страницу</span>
+      <span class="sr-only">Find a page</span>
       <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m16 16 4 4"/></svg>
-      <input type="search" placeholder="Найти страницу" autocomplete="off" data-table-filter="paths-table">
+      <input type="search" placeholder="Find a page" autocomplete="off" data-table-filter="paths-table">
       <kbd>/</kbd>
     </label>
     {% endif %}
@@ -58,10 +58,10 @@
     <table class="data-table" id="paths-table">
       <thead>
         <tr>
-          <th scope="col">Путь</th>
-          <th scope="col">Доля трафика</th>
-          <th scope="col" class="number-cell">Посещения</th>
-          <th scope="col"><span class="sr-only">Открыть</span></th>
+          <th scope="col">Path</th>
+          <th scope="col">Traffic share</th>
+          <th scope="col" class="number-cell">Visits</th>
+          <th scope="col"><span class="sr-only">Open</span></th>
         </tr>
       </thead>
       <tbody>
@@ -75,18 +75,18 @@
             <span>{{ entry.share_percent }}%</span>
           </td>
           <td class="number-cell"><strong>{{ entry.count }}</strong></td>
-          <td class="open-cell"><a href="/statistics/{{ entry.path_url }}" aria-label="Открыть статистику {{ entry.path }}">→</a></td>
+          <td class="open-cell"><a href="/statistics/{{ entry.path_url }}" aria-label="Open statistics for {{ entry.path }}">→</a></td>
         </tr>
         {% endfor %}
       </tbody>
     </table>
-    <div class="empty-state compact" data-filter-empty hidden>Ничего не найдено. Попробуйте изменить запрос.</div>
+    <div class="empty-state compact" data-filter-empty hidden>No matches. Try a different search.</div>
   </div>
   {% else %}
   <div class="empty-state">
     <div class="empty-icon" aria-hidden="true">↗</div>
-    <h3>Данных пока нет</h3>
-    <p>Добавьте счётчик на страницу — первое посещение появится здесь автоматически.</p>
+    <h3>No data yet</h3>
+    <p>Add a counter to a page and its first visit will appear here automatically.</p>
   </div>
   {% endif %}
 </section>

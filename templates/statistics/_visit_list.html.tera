@@ -11,34 +11,34 @@
     </header>
     <div class="visit-details">
       <div class="visit-field visit-ip">
-        <span class="field-label">IP-адрес</span>
-        <div><code>{{ visit.ip }}</code><button class="mini-copy" type="button" data-copy="{{ visit.ip }}" aria-label="Копировать IP-адрес" title="Копировать IP-адрес">⧉</button></div>
+        <span class="field-label">IP address</span>
+        <div><code>{{ visit.ip }}</code><button class="mini-copy" type="button" data-copy="{{ visit.ip }}" aria-label="Copy IP address" title="Copy IP address">⧉</button></div>
       </div>
       <div class="visit-field visit-agent">
-        <span class="field-label">Устройство и браузер</span>
+        <span class="field-label">Device and browser</span>
         <span title="{{ visit.user_agent }}">{{ visit.user_agent }}</span>
       </div>
       <div class="visit-field visit-source">
-        <span class="field-label">Источник</span>
+        <span class="field-label">Source</span>
         <span title="{{ visit.referer }}">{{ visit.referer }}</span>
       </div>
       <div class="visit-field visit-language">
-        <span class="field-label">Язык</span>
+        <span class="field-label">Language</span>
         <span title="{{ visit.language }}">{{ visit.language }}</span>
       </div>
     </div>
     <details class="metadata-details">
-      <summary>Технические данные</summary>
+      <summary>Technical metadata</summary>
       <pre>{{ visit.headers_pretty }}</pre>
     </details>
   </article>
   {% endfor %}
 </div>
-<div class="empty-state compact" data-visit-empty hidden>На этой странице нет совпадений.</div>
+<div class="empty-state compact" data-visit-empty hidden>No matches on this page.</div>
 {% else %}
 <div class="empty-state">
   <div class="empty-icon" aria-hidden="true">⌁</div>
-  <h3>Посещений пока нет</h3>
-  <p>Новые события появятся здесь сразу после обращения к счётчику.</p>
+  <h3>No visits yet</h3>
+  <p>New events will appear here as soon as the counter receives a request.</p>
 </div>
 {% endif %}

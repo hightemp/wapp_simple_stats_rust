@@ -1,68 +1,68 @@
 {% extends "base" %}
 
 {% block content %}
-<nav class="breadcrumbs" aria-label="Хлебные крошки">
-  <a href="/statistics">Статистика</a>
+<nav class="breadcrumbs" aria-label="Breadcrumbs">
+  <a href="/statistics">Statistics</a>
   <span aria-hidden="true">/</span>
-  <span aria-current="page">{% if all_paths %}Все посещения{% else %}{{ path }}{% endif %}</span>
+  <span aria-current="page">{% if all_paths %}All visits{% else %}{{ path }}{% endif %}</span>
 </nav>
 
 <header class="page-heading path-heading">
   <div>
-    <span class="eyebrow">{% if all_paths %}Общая аналитика{% else %}Отдельная страница{% endif %}</span>
-    <h1>{% if all_paths %}Все посещения{% else %}<span class="heading-prefix">Путь</span> {{ path }}{% endif %}</h1>
-    <p>Динамика за последние 30 календарных дней и подробная история событий.</p>
+    <span class="eyebrow">{% if all_paths %}Overall analytics{% else %}Individual page{% endif %}</span>
+    <h1>{% if all_paths %}All visits{% else %}<span class="heading-prefix">Path</span> {{ path }}{% endif %}</h1>
+    <p>A 30-day trend and detailed event history.</p>
   </div>
-  <a class="button button-secondary" href="/statistics/recent">Последние события</a>
+  <a class="button button-secondary" href="/statistics/recent">Recent events</a>
 </header>
 
-<section class="metric-grid" aria-label="Ключевые показатели">
+<section class="metric-grid" aria-label="Key metrics">
   <article class="metric-card metric-accent">
-    <span class="metric-label">Всего посещений</span>
+    <span class="metric-label">Total visits</span>
     <strong>{{ total }}</strong>
-    <span class="metric-note">за всё время</span>
+    <span class="metric-note">all time</span>
   </article>
   <article class="metric-card">
-    <span class="metric-label">Сегодня</span>
+    <span class="metric-label">Today</span>
     <strong>{{ today }}</strong>
-    <span class="metric-note">с начала дня</span>
+    <span class="metric-note">since midnight</span>
   </article>
   <article class="metric-card">
-    <span class="metric-label">Последние 7 дней</span>
+    <span class="metric-label">Last 7 days</span>
     <strong>{{ week }}</strong>
-    <span class="metric-note">включая сегодня</span>
+    <span class="metric-note">including today</span>
   </article>
   <article class="metric-card">
-    <span class="metric-label">Среднее за 30 дней</span>
+    <span class="metric-label">30-day average</span>
     <strong>{{ average_daily }}</strong>
-    <span class="metric-note">посещения в день</span>
+    <span class="metric-note">visits per day</span>
   </article>
 </section>
 
 <section class="panel chart-panel">
   <header class="panel-header">
     <div>
-      <h2>Динамика посещений</h2>
-      <p>30 календарных дней, включая дни без событий</p>
+      <h2>Visit trend</h2>
+      <p>30 calendar days, including days with no events</p>
     </div>
-    <div class="chart-summary"><strong>{{ max_daily }}</strong><span>максимум за день</span></div>
+    <div class="chart-summary"><strong>{{ max_daily }}</strong><span>daily high</span></div>
   </header>
 
   <div class="chart-wrap">
     <svg class="line-chart" viewBox="0 0 720 220" role="img" aria-labelledby="chart-title chart-description" preserveAspectRatio="none">
-      <title id="chart-title">Посещения за 30 дней</title>
-      <desc id="chart-description">Максимальное количество посещений за день: {{ max_daily }}</desc>
+      <title id="chart-title">Visits over the last 30 days</title>
+      <desc id="chart-description">Highest daily visit count: {{ max_daily }}</desc>
       <defs><linearGradient id="area-gradient" x1="0" y1="0" x2="0" y2="1"><stop offset="0"/><stop offset="1"/></linearGradient></defs>
       <g class="chart-grid" aria-hidden="true"><line x1="16" y1="32" x2="704" y2="32"/><line x1="16" y1="87" x2="704" y2="87"/><line x1="16" y1="142" x2="704" y2="142"/><line x1="16" y1="196" x2="704" y2="196"/></g>
       <polygon class="chart-area" points="16,196 {{ chart_points }} 704,196" aria-hidden="true"/>
       <polyline class="chart-line" points="{{ chart_points }}" aria-hidden="true"/>
       {% for day in daily %}<circle class="chart-point" cx="{{ day.x }}" cy="{{ day.y }}" r="3"><title>{{ day.date }}: {{ day.count }}</title></circle>{% endfor %}
     </svg>
-    <div class="chart-axis"><span>{{ daily.0.date }}</span><span>Сегодня</span></div>
+    <div class="chart-axis"><span>{{ daily.0.date }}</span><span>Today</span></div>
   </div>
 
   <details class="daily-details">
-    <summary>Показать данные по дням</summary>
+    <summary>Show daily data</summary>
     <div class="daily-grid">
       {% for day in daily %}<div><time datetime="{{ day.date }}">{{ day.date }}</time><strong>{{ day.count }}</strong></div>{% endfor %}
     </div>
@@ -72,14 +72,14 @@
 <section class="panel visits-panel">
   <header class="panel-header panel-header-toolbar">
     <div>
-      <h2>История посещений</h2>
-      <p>{{ unique_ips }} уникальных адресов · записи {{ range_start }}–{{ range_end }} из {{ total }}</p>
+      <h2>Visit history</h2>
+      <p>{{ unique_ips }} unique addresses · records {{ range_start }}–{{ range_end }} of {{ total }}</p>
     </div>
     {% if visits | length > 0 %}
     <label class="search-box">
-      <span class="sr-only">Фильтр текущей страницы</span>
+      <span class="sr-only">Filter this page</span>
       <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m16 16 4 4"/></svg>
-      <input type="search" placeholder="Путь, IP, браузер" autocomplete="off" data-visit-filter>
+      <input type="search" placeholder="Path, IP, or browser" autocomplete="off" data-visit-filter>
     </label>
     {% endif %}
   </header>

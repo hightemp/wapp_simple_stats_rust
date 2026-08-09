@@ -29,7 +29,7 @@ pub(crate) fn get_statistics(
         "statistics/index",
         json!({
             "site_title": config.site_title(),
-            "page_title": "Статистика",
+            "page_title": "Statistics",
             "active_page": "overview",
             "theme_auto": config.theme_auto(),
             "total": totals.total,
@@ -72,7 +72,7 @@ pub(crate) fn get_statistics_path(
         "statistics/path",
         json!({
             "site_title": config.site_title(),
-            "page_title": if all_paths { "Все посещения" } else { "Статистика пути" },
+            "page_title": if all_paths { "All visits" } else { "Path statistics" },
             "active_page": if all_paths { "visits" } else { "overview" },
             "theme_auto": config.theme_auto(),
             "path": path,
@@ -114,7 +114,7 @@ pub(crate) fn get_statistics_recent(
         "statistics/recent",
         json!({
             "site_title": config.site_title(),
-            "page_title": "Последние посещения",
+            "page_title": "Recent visits",
             "active_page": "recent",
             "theme_auto": config.theme_auto(),
             "total": totals.total,

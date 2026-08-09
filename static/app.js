@@ -9,7 +9,7 @@
   const updateThemeLabel = () => {
     if (!themeToggle) return;
     const current = getComputedStyle(root).colorScheme;
-    themeToggle.setAttribute('aria-label', current === 'dark' ? 'Включить светлую тему' : 'Включить тёмную тему');
+    themeToggle.setAttribute('aria-label', current === 'dark' ? 'Switch to light theme' : 'Switch to dark theme');
   };
   updateThemeLabel();
 
@@ -21,7 +21,7 @@
     updateThemeLabel();
   });
 
-  const normalize = (value) => value.toLocaleLowerCase('ru').trim();
+  const normalize = (value) => value.toLocaleLowerCase('en').trim();
 
   document.querySelectorAll('[data-table-filter]').forEach((input) => {
     const table = document.getElementById(input.dataset.tableFilter);
@@ -70,9 +70,9 @@
       const original = button.textContent;
       try {
         await navigator.clipboard.writeText(button.dataset.copy ?? '');
-        button.textContent = button.classList.contains('mini-copy') ? '✓' : 'Скопировано';
+        button.textContent = button.classList.contains('mini-copy') ? '✓' : 'Copied';
       } catch {
-        button.textContent = 'Не удалось';
+        button.textContent = 'Failed';
       }
       window.setTimeout(() => { button.textContent = original; }, 1400);
     });

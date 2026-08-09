@@ -10,7 +10,7 @@ pub(crate) fn get_root(config: &State<AppConfig>) -> Template {
         "landing",
         json!({
             "site_title": config.site_title(),
-            "page_title": "Главная",
+            "page_title": "Home",
             "active_page": "home",
             "theme_auto": config.theme_auto(),
         }),

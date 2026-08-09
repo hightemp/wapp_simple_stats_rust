@@ -1,17 +1,17 @@
 {% if total_pages > 1 %}
-<nav class="pagination" aria-label="Навигация по страницам">
+<nav class="pagination" aria-label="Pagination">
   {% if has_prev %}
-  <a class="pagination-button" href="{{ page_base }}?page={{ prev_page }}"><span aria-hidden="true">←</span> Назад</a>
+  <a class="pagination-button" href="{{ page_base }}?page={{ prev_page }}"><span aria-hidden="true">←</span> Previous</a>
   {% else %}
-  <span class="pagination-button is-disabled" aria-disabled="true"><span aria-hidden="true">←</span> Назад</span>
+  <span class="pagination-button is-disabled" aria-disabled="true"><span aria-hidden="true">←</span> Previous</span>
   {% endif %}
 
-  <span class="pagination-status"><span class="desktop-only">Страница </span>{{ current_page }} из {{ total_pages }}</span>
+  <span class="pagination-status"><span class="desktop-only">Page </span>{{ current_page }} of {{ total_pages }}</span>
 
   {% if has_next %}
-  <a class="pagination-button" href="{{ page_base }}?page={{ next_page }}">Вперёд <span aria-hidden="true">→</span></a>
+  <a class="pagination-button" href="{{ page_base }}?page={{ next_page }}">Next <span aria-hidden="true">→</span></a>
   {% else %}
-  <span class="pagination-button is-disabled" aria-disabled="true">Вперёд <span aria-hidden="true">→</span></span>
+  <span class="pagination-button is-disabled" aria-disabled="true">Next <span aria-hidden="true">→</span></span>
   {% endif %}
 </nav>
 {% endif %}
