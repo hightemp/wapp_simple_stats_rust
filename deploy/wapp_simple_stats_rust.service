@@ -1,0 +1,31 @@
+[Unit]
+Description=Simple Stats Rust server
+After=network.target
+
+[Service]
+Type=simple
+User=wapp-stats
+Group=wapp-stats
+EnvironmentFile=/etc/wapp_simple_stats.env
+WorkingDirectory=/srv/wapp_simple_stats_rust
+ExecStart=/srv/wapp_simple_stats_rust/wapp_simple_stats_rust
+Restart=always
+RestartSec=10
+UMask=0077
+
+NoNewPrivileges=true
+PrivateDevices=true
+PrivateTmp=true
+ProtectControlGroups=true
+ProtectHome=true
+ProtectKernelModules=true
+ProtectKernelTunables=true
+ProtectSystem=strict
+ReadWritePaths=/var/lib/wapp_simple_stats_rust
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+RestrictRealtime=true
+RestrictSUIDSGID=true
+CapabilityBoundingSet=
+
+[Install]
+WantedBy=multi-user.target

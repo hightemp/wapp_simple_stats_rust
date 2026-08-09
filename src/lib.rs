@@ -2,7 +2,7 @@
 
 use std::error::Error;
 
-use rocket::fs::{relative, FileServer};
+use rocket::fs::FileServer;
 use rocket::{catchers, routes, Build, Rocket};
 use rocket_dyn_templates::Template;
 
@@ -29,7 +29,7 @@ fn build_rocket(config: AppConfig) -> Rocket<Build> {
         .manage(config)
         .attach(SecurityHeaders)
         .attach(Template::fairing())
-        .mount("/assets", FileServer::from(relative!("static")))
+        .mount("/assets", FileServer::from("static"))
         .mount(
             "/",
             routes![
