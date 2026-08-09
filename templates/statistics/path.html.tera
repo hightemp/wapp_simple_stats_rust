@@ -1,160 +1,90 @@
 {% extends "base" %}
 
 {% block content %}
-<article>
-  <header class="d-flex align-items-center justify-content-between">
+<nav class="breadcrumbs" aria-label="Хлебные крошки">
+  <a href="/statistics">Статистика</a>
+  <span aria-hidden="true">/</span>
+  <span aria-current="page">{% if all_paths %}Все посещения{% else %}{{ path }}{% endif %}</span>
+</nav>
+
+<header class="page-heading path-heading">
+  <div>
+    <span class="eyebrow">{% if all_paths %}Общая аналитика{% else %}Отдельная страница{% endif %}</span>
+    <h1>{% if all_paths %}Все посещения{% else %}<span class="heading-prefix">Путь</span> {{ path }}{% endif %}</h1>
+    <p>Динамика за последние 30 календарных дней и подробная история событий.</p>
+  </div>
+  <a class="button button-secondary" href="/statistics/recent">Последние события</a>
+</header>
+
+<section class="metric-grid" aria-label="Ключевые показатели">
+  <article class="metric-card metric-accent">
+    <span class="metric-label">Всего посещений</span>
+    <strong>{{ total }}</strong>
+    <span class="metric-note">за всё время</span>
+  </article>
+  <article class="metric-card">
+    <span class="metric-label">Сегодня</span>
+    <strong>{{ today }}</strong>
+    <span class="metric-note">с начала дня</span>
+  </article>
+  <article class="metric-card">
+    <span class="metric-label">Последние 7 дней</span>
+    <strong>{{ week }}</strong>
+    <span class="metric-note">включая сегодня</span>
+  </article>
+  <article class="metric-card">
+    <span class="metric-label">Среднее за 30 дней</span>
+    <strong>{{ average_daily }}</strong>
+    <span class="metric-note">посещения в день</span>
+  </article>
+</section>
+
+<section class="panel chart-panel">
+  <header class="panel-header">
     <div>
-      <h1 class="h5 mb-1">Statistics {% if path == "__all__" %}for ALL{% else %}for "{{ path }}"{% endif %}</h1>
-      <p class="text-body-secondary small mb-0">Daily visits and recent activity</p>
+      <h2>Динамика посещений</h2>
+      <p>30 календарных дней, включая дни без событий</p>
     </div>
-    
+    <div class="chart-summary"><strong>{{ max_daily }}</strong><span>максимум за день</span></div>
   </header>
 
-  <section class="mt-3">
-    <h2 class="h6">Daily visits</h2>
-    <div class="card">
-      <div class="card-body">
-        <canvas id="visitsChart" height="120"></canvas>
-      </div>
+  <div class="chart-wrap">
+    <svg class="line-chart" viewBox="0 0 720 220" role="img" aria-labelledby="chart-title chart-description" preserveAspectRatio="none">
+      <title id="chart-title">Посещения за 30 дней</title>
+      <desc id="chart-description">Максимальное количество посещений за день: {{ max_daily }}</desc>
+      <defs><linearGradient id="area-gradient" x1="0" y1="0" x2="0" y2="1"><stop offset="0"/><stop offset="1"/></linearGradient></defs>
+      <g class="chart-grid" aria-hidden="true"><line x1="16" y1="32" x2="704" y2="32"/><line x1="16" y1="87" x2="704" y2="87"/><line x1="16" y1="142" x2="704" y2="142"/><line x1="16" y1="196" x2="704" y2="196"/></g>
+      <polygon class="chart-area" points="16,196 {{ chart_points }} 704,196" aria-hidden="true"/>
+      <polyline class="chart-line" points="{{ chart_points }}" aria-hidden="true"/>
+      {% for day in daily %}<circle class="chart-point" cx="{{ day.x }}" cy="{{ day.y }}" r="3"><title>{{ day.date }}: {{ day.count }}</title></circle>{% endfor %}
+    </svg>
+    <div class="chart-axis"><span>{{ daily.0.date }}</span><span>Сегодня</span></div>
+  </div>
+
+  <details class="daily-details">
+    <summary>Показать данные по дням</summary>
+    <div class="daily-grid">
+      {% for day in daily %}<div><time datetime="{{ day.date }}">{{ day.date }}</time><strong>{{ day.count }}</strong></div>{% endfor %}
     </div>
-  </section>
+  </details>
+</section>
 
-  <section class="mt-3">
-    <div class="d-flex align-items-center justify-content-between">
-      <h2 class="h6 mb-0">Visits</h2>
-      <nav aria-label="Pagination">
-        <ul class="pagination pagination-sm mb-0">
-          {% if has_prev %}
-          <li class="page-item">
-            {% if path == "__all__" %}
-            <a class="page-link" href="/statistics/__all__?page={{ prev_page }}">Prev</a>
-            {% else %}
-            <a class="page-link" href="/statistics/{{ path }}?page={{ prev_page }}">Prev</a>
-            {% endif %}
-          </li>
-          {% else %}
-          <li class="page-item disabled"><span class="page-link">Prev</span></li>
-          {% endif %}
-
-          <li class="page-item disabled">
-            <span class="page-link">Page {{ current_page }} / {{ total_pages }}</span>
-          </li>
-
-          {% if has_next %}
-          <li class="page-item">
-            {% if path == "__all__" %}
-            <a class="page-link" href="/statistics/__all__?page={{ next_page }}">Next</a>
-            {% else %}
-            <a class="page-link" href="/statistics/{{ path }}?page={{ next_page }}">Next</a>
-            {% endif %}
-          </li>
-          {% else %}
-          <li class="page-item disabled"><span class="page-link">Next</span></li>
-          {% endif %}
-        </ul>
-      </nav>
+<section class="panel visits-panel">
+  <header class="panel-header panel-header-toolbar">
+    <div>
+      <h2>История посещений</h2>
+      <p>{{ unique_ips }} уникальных адресов · записи {{ range_start }}–{{ range_end }} из {{ total }}</p>
     </div>
+    {% if visits | length > 0 %}
+    <label class="search-box">
+      <span class="sr-only">Фильтр текущей страницы</span>
+      <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m16 16 4 4"/></svg>
+      <input type="search" placeholder="Путь, IP, браузер" autocomplete="off" data-visit-filter>
+    </label>
+    {% endif %}
+  </header>
 
-    <div class="table-responsive mt-2">
-      <table class="table table-sm table-striped table-hover align-middle mb-0" role="grid">
-        <thead class="table-light">
-          <tr>
-            <th style="white-space:nowrap;">Timestamp</th>
-            <th>Path</th>
-            <th>IP</th>
-            <th style="min-width: 260px;">Headers JSON</th>
-          </tr>
-        </thead>
-        <tbody>
-          {% for v in last %}
-          <tr>
-            <td style="white-space:nowrap;">{{ v.timestamp }}</td>
-            <td class="text-break">{{ v.path }}</td>
-            <td class="text-break">{{ v.ip }}</td>
-            <td>
-              <details>
-                <summary class="text-body-secondary">Show</summary>
-                <pre class="json pretty mb-0">{{ v.json }}</pre>
-              </details>
-            </td>
-          </tr>
-          {% endfor %}
-        </tbody>
-      </table>
-    </div>
-
-    <div class="d-flex align-items-center justify-content-end mt-2">
-      <nav aria-label="Pagination bottom">
-        <ul class="pagination pagination-sm mb-0">
-          {% if has_prev %}
-          <li class="page-item">
-            {% if path == "__all__" %}
-            <a class="page-link" href="/statistics/__all__?page={{ prev_page }}">Prev</a>
-            {% else %}
-            <a class="page-link" href="/statistics/{{ path }}?page={{ prev_page }}">Prev</a>
-            {% endif %}
-          </li>
-          {% else %}
-          <li class="page-item disabled"><span class="page-link">Prev</span></li>
-          {% endif %}
-
-          <li class="page-item disabled">
-            <span class="page-link">Page {{ current_page }} / {{ total_pages }}</span>
-          </li>
-
-          {% if has_next %}
-          <li class="page-item">
-            {% if path == "__all__" %}
-            <a class="page-link" href="/statistics/__all__?page={{ next_page }}">Next</a>
-            {% else %}
-            <a class="page-link" href="/statistics/{{ path }}?page={{ next_page }}">Next</a>
-            {% endif %}
-          </li>
-          {% else %}
-          <li class="page-item disabled"><span class="page-link">Next</span></li>
-          {% endif %}
-        </ul>
-      </nav>
-    </div>
-  </section>
-</article>
-
-<script>
-const labels = {{ labels | json_encode | safe }};
-const counts = {{ counts | json_encode | safe }};
-
-const ctx = document.getElementById('visitsChart').getContext('2d');
-new Chart(ctx, {
-  type: 'line',
-  data: {
-    labels,
-    datasets: [{
-      label: 'Daily visits',
-      data: counts,
-      borderColor: 'rgb(79, 70, 229)',
-      backgroundColor: 'rgba(79, 70, 229, 0.15)',
-      tension: 0.25,
-      fill: true,
-      pointRadius: 2
-    }]
-  },
-  options: {
-    responsive: true,
-    maintainAspectRatio: true,
-    plugins: { legend: { display: false }, tooltip: { intersect: false, mode: 'index' } },
-    scales: { x: { grid: { display: false } }, y: { beginAtZero: true, ticks: { precision: 0 } } }
-  }
-});
-
-// Pretty-print inline JSON blocks for readability
-document.querySelectorAll('pre.json.pretty').forEach(el => {
-  try {
-    const text = el.textContent.trim();
-    const obj = JSON.parse(text);
-    el.textContent = JSON.stringify(obj, null, 2);
-  } catch (e) {
-    // leave as-is if not valid JSON
-  }
-});
-</script>
+  {% include "statistics/_visit_list" %}
+  {% include "statistics/_pagination" %}
+</section>
 {% endblock content %}

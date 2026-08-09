@@ -1,45 +1,47 @@
 <!doctype html>
-<html lang="en" data-bs-theme="auto">
+<html lang="ru" data-theme="{% if theme_auto %}auto{% else %}light{% endif %}">
 <head>
   <meta charset="utf-8">
-  <meta http-equiv="X-UA-Compatible" content="IE=edge">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="color-scheme" content="light dark">
+  <meta name="referrer" content="no-referrer">
   <title>{{ page_title | default(value="Simple Stats") }} — {{ site_title | default(value="Simple Stats") }}</title>
   <link rel="icon" href='data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128"><text y="1em" font-size="96">📈</text></svg>'>
-  <!-- Bootstrap 5 -->
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
-  <style>
-    :root { --accent: #4f46e5; }
-    body { font-size: 0.95rem; }
-    header.site-header { margin: .75rem 0 1.25rem; }
-    .brand { font-weight: 700; font-size: 1rem; }
-    .nav-link { padding: .25rem .5rem; }
-    h1, h2, h3 { margin-top: .75rem; margin-bottom: .75rem; }
-    table { font-size: .92rem; }
-    pre { white-space: pre-wrap; word-break: break-word; }
-    .badge-accent { background: var(--accent); }
-    .content { padding-bottom: 2rem; }
-  </style>
-  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <link rel="stylesheet" href="/assets/app.css">
+  <script src="/assets/app.js" defer></script>
 </head>
 <body>
-  <div class="container-xl content">
-    <header class="site-header d-flex align-items-center justify-content-between">
-      <div class="brand">{{ site_title | default(value="Simple Stats") }}</div>
-      <ul class="nav">
-        <li class="nav-item"><a class="nav-link link-secondary" href="/">Home</a></li>
-        <li class="nav-item"><a class="nav-link link-primary" href="/statistics">Statistics</a></li>
-      </ul>
-    </header>
+  <a class="skip-link" href="#main-content">Перейти к содержимому</a>
+  <header class="site-header">
+    <div class="shell header-inner">
+      <a class="brand" href="/" aria-label="{{ site_title | default(value="Simple Stats") }} — главная">
+        <span class="brand-mark" aria-hidden="true">
+          <svg viewBox="0 0 24 24"><path d="M4 18V9m6 9V5m6 13v-7m4 7H2"/></svg>
+        </span>
+        <span>{{ site_title | default(value="Simple Stats") }}</span>
+      </a>
 
+      <nav class="main-nav" aria-label="Основная навигация">
+        <a href="/statistics" {% if active_page == "overview" %}aria-current="page"{% endif %}>Обзор</a>
+        <a href="/statistics/__all__" {% if active_page == "visits" %}aria-current="page"{% endif %}>Посещения</a>
+        <a href="/statistics/recent" {% if active_page == "recent" %}aria-current="page"{% endif %}>Последние</a>
+      </nav>
+
+      <button class="icon-button theme-toggle" type="button" data-theme-toggle aria-label="Переключить тему" title="Переключить тему">
+        <svg class="sun-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 2v2m0 16v2M4.9 4.9l1.4 1.4m11.4 11.4 1.4 1.4M2 12h2m16 0h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
+        <svg class="moon-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 15.3A8 8 0 0 1 8.7 4a8 8 0 1 0 11.3 11.3Z"/></svg>
+      </button>
+    </div>
+  </header>
+
+  <main class="shell main-content" id="main-content">
     {% block content %}{% endblock content %}
+  </main>
 
-    <footer class="mt-4 text-body-secondary small">
-      Powered by wapp_simple_stats_rust
-    </footer>
-  </div>
-
-  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
+  <footer class="shell site-footer">
+    <span>Simple Stats</span>
+    <span class="footer-dot" aria-hidden="true"></span>
+    <span>Локальная аналитика без лишнего шума</span>
+  </footer>
 </body>
 </html>

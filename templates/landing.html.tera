@@ -1,28 +1,39 @@
 {% extends "base" %}
 
 {% block content %}
-<article>
-  <header>
-    <h1>{{ site_title | default(value="Simple Stats") }}</h1>
-    <p class="secondary">Lightweight visitor counter with SQLite storage</p>
-  </header>
+<section class="landing-hero">
+  <div>
+    <span class="eyebrow">Лёгкая веб-аналитика</span>
+    <h1>Счётчик посещений,<br>который остаётся вашим</h1>
+    <p class="lead">Минимальное приложение на Rust и SQLite: собирает только нужные данные и показывает их в удобной панели.</p>
+    <div class="button-row">
+      <a class="button button-primary" href="/statistics">Открыть статистику</a>
+      <a class="button button-secondary" href="/statistics/recent">Последние посещения</a>
+    </div>
+  </div>
+  <div class="landing-visual" aria-hidden="true">
+    <div class="visual-card visual-card-main">
+      <span class="visual-label">Посещения</span>
+      <strong>12 840</strong>
+      <span class="trend-up">↗ 18,4%</span>
+      <svg viewBox="0 0 320 100"><path d="M0 83 C35 76 42 52 72 59 S118 88 151 48 S197 20 224 39 S276 62 320 10"/></svg>
+    </div>
+    <div class="visual-card visual-card-small">
+      <span class="status-dot"></span>
+      <span>Данные обновляются</span>
+    </div>
+  </div>
+</section>
 
-  <section>
-    <h2>How to use</h2>
-    <p>Embed this image anywhere to increment and display a named counter:</p>
-    <pre><code><img src="/counter/example" alt="statistics badge" /></code></pre>
-    <p>Preview:</p>
-    <img src="/counter/example" alt="statistics badge" />
-  </section>
-
-  <section>
-    <h2>Statistics</h2>
-    <p>
-      Open the statistics dashboard. If auth is enabled, use your Basic credentials from config.yaml.
-    </p>
-    <p>
-      <a role="button" href="/statistics">Open Statistics</a>
-    </p>
-  </section>
-</article>
+<section class="setup-panel panel">
+  <div>
+    <span class="eyebrow">Быстрый старт</span>
+    <h2>Одна строка для подключения</h2>
+    <p class="muted">Добавьте изображение на нужную страницу. Каждый запрос увеличит её счётчик.</p>
+  </div>
+  <div class="code-block">
+    <code>&lt;img src="https://your-host/counter/my-page" alt="statistics"&gt;</code>
+    <button class="copy-button" type="button" data-copy='&lt;img src="https://your-host/counter/my-page" alt="statistics"&gt;'>Копировать</button>
+  </div>
+</section>
 {% endblock content %}

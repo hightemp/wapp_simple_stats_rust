@@ -1,0 +1,44 @@
+{% if visits | length > 0 %}
+<div class="visit-list" id="visit-list">
+  {% for visit in visits %}
+  <article class="visit-card" data-visit-row data-search-value="{{ visit.path }} {{ visit.ip }} {{ visit.user_agent }} {{ visit.referer }}">
+    <header class="visit-header">
+      <div class="visit-time">
+        <span class="status-dot" aria-hidden="true"></span>
+        <time datetime="{{ visit.timestamp }}">{{ visit.timestamp }}</time>
+      </div>
+      <a class="path-pill" href="/statistics/{{ visit.path_url }}">{{ visit.path }}</a>
+    </header>
+    <div class="visit-details">
+      <div class="visit-field visit-ip">
+        <span class="field-label">IP-адрес</span>
+        <div><code>{{ visit.ip }}</code><button class="mini-copy" type="button" data-copy="{{ visit.ip }}" aria-label="Копировать IP-адрес" title="Копировать IP-адрес">⧉</button></div>
+      </div>
+      <div class="visit-field visit-agent">
+        <span class="field-label">Устройство и браузер</span>
+        <span title="{{ visit.user_agent }}">{{ visit.user_agent }}</span>
+      </div>
+      <div class="visit-field visit-source">
+        <span class="field-label">Источник</span>
+        <span title="{{ visit.referer }}">{{ visit.referer }}</span>
+      </div>
+      <div class="visit-field visit-language">
+        <span class="field-label">Язык</span>
+        <span title="{{ visit.language }}">{{ visit.language }}</span>
+      </div>
+    </div>
+    <details class="metadata-details">
+      <summary>Технические данные</summary>
+      <pre>{{ visit.headers_pretty }}</pre>
+    </details>
+  </article>
+  {% endfor %}
+</div>
+<div class="empty-state compact" data-visit-empty hidden>На этой странице нет совпадений.</div>
+{% else %}
+<div class="empty-state">
+  <div class="empty-icon" aria-hidden="true">⌁</div>
+  <h3>Посещений пока нет</h3>
+  <p>Новые события появятся здесь сразу после обращения к счётчику.</p>
+</div>
+{% endif %}

@@ -1,35 +1,93 @@
 {% extends "base" %}
 
 {% block content %}
-<article>
-  <header class="d-flex align-items-center justify-content-between">
-    <h1 class="h4 mb-0">Statistics</h1>
-    <span class="badge text-bg-primary">Total: {{ total }}</span>
+<header class="page-heading">
+  <div>
+    <span class="eyebrow">Сводка</span>
+    <h1>Статистика</h1>
+    <p>Главные показатели и распределение трафика по страницам.</p>
+  </div>
+  <a class="button button-secondary" href="/statistics/__all__">Все посещения <span aria-hidden="true">→</span></a>
+</header>
+
+<section class="metric-grid" aria-label="Ключевые показатели">
+  <article class="metric-card metric-accent">
+    <div class="metric-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 18V9m6 9V5m6 13v-7m4 7H2"/></svg></div>
+    <span class="metric-label">Всего посещений</span>
+    <strong>{{ total }}</strong>
+    <span class="metric-note">за всё время</span>
+  </article>
+  <article class="metric-card">
+    <div class="metric-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h10M4 18h7"/></svg></div>
+    <span class="metric-label">Отслеживается</span>
+    <strong>{{ unique_paths }}</strong>
+    <span class="metric-note">страниц и счётчиков</span>
+  </article>
+  <article class="metric-card">
+    <div class="metric-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M7 3v3m10-3v3M4 9h16M5 5h14a1 1 0 0 1 1 1v14H4V6a1 1 0 0 1 1-1Z"/></svg></div>
+    <span class="metric-label">Сегодня</span>
+    <strong>{{ today }}</strong>
+    <span class="metric-note">посещений с 00:00</span>
+  </article>
+  <article class="metric-card">
+    <div class="metric-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="m4 15 5-5 4 4 7-8m0 0v5m0-5h-5"/></svg></div>
+    <span class="metric-label">Последние 7 дней</span>
+    <strong>{{ week }}</strong>
+    <span class="metric-note">включая сегодня</span>
+  </article>
+</section>
+
+<section class="panel paths-panel">
+  <header class="panel-header panel-header-toolbar">
+    <div>
+      <h2>Страницы</h2>
+      <p>От самых посещаемых к менее активным</p>
+    </div>
+    {% if entries | length > 0 %}
+    <label class="search-box">
+      <span class="sr-only">Найти страницу</span>
+      <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m16 16 4 4"/></svg>
+      <input type="search" placeholder="Найти страницу" autocomplete="off" data-table-filter="paths-table">
+      <kbd>/</kbd>
+    </label>
+    {% endif %}
   </header>
 
-  <section class="mt-3">
-    <div class="table-responsive">
-      <table class="table table-sm table-striped table-hover align-middle mb-0" role="grid">
-        <thead class="table-light">
-          <tr>
-            <th>Path</th>
-            <th class="text-end" style="width: 1%;">Visitors</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr>
-            <td><a href="/statistics/__all__" class="link-primary text-decoration-none">ALL</a></td>
-            <td class="text-end">{{ total }}</td>
-          </tr>
-          {% for e in entries %}
-          <tr>
-            <td class="text-break"><a href="/statistics/{{ e.path }}" class="link-body-emphasis text-decoration-none">{{ e.path }}</a></td>
-            <td class="text-end">{{ e.count }}</td>
-          </tr>
-          {% endfor %}
-        </tbody>
-      </table>
-    </div>
-  </section>
-</article>
+  {% if entries | length > 0 %}
+  <div class="table-scroll">
+    <table class="data-table" id="paths-table">
+      <thead>
+        <tr>
+          <th scope="col">Путь</th>
+          <th scope="col">Доля трафика</th>
+          <th scope="col" class="number-cell">Посещения</th>
+          <th scope="col"><span class="sr-only">Открыть</span></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for entry in entries %}
+        <tr data-filter-row data-search-value="{{ entry.path }}">
+          <td>
+            <a class="path-link" href="/statistics/{{ entry.path_url }}">{{ entry.path }}</a>
+          </td>
+          <td class="share-cell">
+            <progress max="{{ total }}" value="{{ entry.count }}">{{ entry.share_percent }}%</progress>
+            <span>{{ entry.share_percent }}%</span>
+          </td>
+          <td class="number-cell"><strong>{{ entry.count }}</strong></td>
+          <td class="open-cell"><a href="/statistics/{{ entry.path_url }}" aria-label="Открыть статистику {{ entry.path }}">→</a></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    <div class="empty-state compact" data-filter-empty hidden>Ничего не найдено. Попробуйте изменить запрос.</div>
+  </div>
+  {% else %}
+  <div class="empty-state">
+    <div class="empty-icon" aria-hidden="true">↗</div>
+    <h3>Данных пока нет</h3>
+    <p>Добавьте счётчик на страницу — первое посещение появится здесь автоматически.</p>
+  </div>
+  {% endif %}
+</section>
 {% endblock content %}

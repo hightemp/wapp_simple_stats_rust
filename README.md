@@ -1,52 +1,97 @@
 # wapp_simple_stats_rust
 
-Lightweight web counter written in Rust. It stores hits in SQLite and exposes:
-- a badge endpoint you can embed anywhere to increment and display a named counter
-- a protected statistics dashboard with charts and tables
-
-UI is rendered with Tera templates and styled via bootstrap.css (CDN). Charts are rendered with Chart.js (CDN). Supports automatic light/dark theme selection.
+Lightweight, self-hosted web counter written in Rust. It stores visits in SQLite and provides a protected, responsive statistics dashboard.
 
 ## Features
 
-- Named counters via `/counter/<path>` (returns an SVG badge)
-- Statistics dashboard:
-  - Index page: grouped counts by path
-  - Path page: daily counts for last 30 entries + last 10 raw visits
-- Basic Auth (configurable)
-- SQLite storage (file on disk)
-- Auto light/dark theme, responsive layout
+- Named SVG counters via `GET /counter/<path>`
+- Dashboard overview with total, daily and weekly metrics
+- A real 30-calendar-day chart, including zero-visit days
+- Searchable path table and readable visit cards
+- Paginated visit history with extracted browser, referrer and language data
+- Automatic light/dark theme without external CDN dependencies
+- Basic Auth with constant-time credential comparison
+- IP anonymization enabled by default (`/24` for IPv4, `/48` for IPv6)
+- Security headers, strict Content Security Policy and protected JSON export
+- SQLite WAL mode and indexes for concurrent reads and faster reports
+
+## Configuration
+
+Copy the example configuration and replace the example password:
+
+```shell
+cp config.example.yaml config.yaml
+```
+
+For production, keep secrets outside the file:
+
+```shell
+export WAPP_STATS_USERNAME="admin"
+export WAPP_STATS_PASSWORD="a-long-random-password"
+cargo run --release --locked
+```
+
+When authentication is enabled, the application refuses to start with an empty username, a password shorter than 12 bytes, or the example password. Disabling authentication is supported for explicitly trusted local networks, but the application prints a warning.
+
+Basic Auth credentials are only transport-safe over HTTPS. Put the application behind an HTTPS reverse proxy before exposing it to the internet. Do not configure that proxy to pass client-controlled `X-Real-IP` values unchanged.
+
+### Privacy
+
+New visits store only these request headers:
+
+- `User-Agent`
+- `Accept-Language`
+- `Referer` without query parameters or fragments
+
+Cookies, authorization values and arbitrary proxy headers are not stored. Set `privacy.anonymize_ip: false` only when exact IP addresses are genuinely required and your privacy policy allows it. Existing database rows are not rewritten automatically.
 
 ## Endpoints
 
-- `GET /counter/<path>`
-  - Increments counter for `<path>` and returns a small SVG badge
-  - Example: `<img src="/counter/example" alt="statistics badge" />`
-- `GET /statistics`
-  - Protected by Basic Auth (if enabled)
-  - Summary table of all paths
-- `GET /statistics/__all__`
-  - Protected by Basic Auth (if enabled)
-  - Daily counts (last 30 rows) aggregated for all paths + last 10 recent visits
-- `GET /statistics/<path>`
-  - Protected by Basic Auth (if enabled)
-  - Daily counts (last 30 rows) for specific path + last 10 recent visits
-- `GET /statistics_self_full_json`
-  - Full dataset as JSON (not protected by default)
-  - Useful for tooling/integrations
+- `GET /counter/<path>` — records a visit and returns an SVG badge
+- `GET /statistics` — dashboard overview (protected)
+- `GET /statistics/__all__` — 30-day analytics and complete paginated history (protected)
+- `GET /statistics/<path>` — analytics for one counter path (protected)
+- `GET /statistics/recent` — latest events across all paths (protected)
+- `GET /statistics_self_full_json` — full JSON export (protected)
 
-## Usage Examples
+Embed a counter like this:
 
-Embed a counter badge:
 ```html
-<img src="https://your-host/counter/my-page" alt="statistics" />
+<img src="https://your-host/counter/my-page" alt="statistics">
 ```
 
-## Screenshots
+## Development
 
-![](images/2025-09-27_13-30.png)
+The Makefile provides the common development workflow:
+
+```shell
+make help
+make config
+make dev
+```
+
+The development server listens on `127.0.0.1:8000` by default. Both values can be overridden without editing configuration files:
+
+```shell
+make dev DEV_ADDRESS=0.0.0.0 DEV_PORT=8080
+```
+
+Run the complete local check before committing:
+
+```shell
+make check
+```
+
+Other useful commands include `make watch`, `make release`, `make audit`, `make deps`, `make docs` and `make clean`. `watch` and `audit` print installation instructions when their optional Cargo utilities are missing.
+
+Equivalent Cargo commands:
+
+```shell
+cargo fmt -- --check
+cargo test --locked
+cargo clippy --all-targets --all-features --locked -- -D warnings
+```
 
 ## License
 
 MIT
-
-![](https://asdertasd.site/counter/wapp_simple_stats_rust)

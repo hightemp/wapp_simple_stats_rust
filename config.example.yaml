@@ -7,6 +7,10 @@ auth:
   enabled: true
   basic:
     username: "admin"
-    password: "password"
+    # Replace this value or set WAPP_STATS_PASSWORD in the environment.
+    password: "replace-with-a-random-password"
+privacy:
+  # Stores 192.0.2.0 instead of 192.0.2.42 and masks IPv6 to /48.
+  anonymize_ip: true
 database:
   path: "./wapp_simple_stats_rust.db"
