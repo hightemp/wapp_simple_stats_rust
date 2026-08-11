@@ -1,8 +1,7 @@
 use std::collections::BTreeMap;
 
+use rocket::http::HeaderMap;
 use rocket::request::{FromRequest, Outcome, Request};
-
-use crate::utils::{strip_url_query, truncate_chars};
 
 #[derive(Debug)]
 pub(crate) struct RequestMetadata {
@@ -19,29 +18,26 @@ impl<'r> FromRequest<'r> for RequestMetadata {
             .client_ip()
             .map_or_else(|| "unknown".to_owned(), |address| address.to_string());
 
-        let mut headers = BTreeMap::new();
-        copy_safe_header(request, &mut headers, "user-agent", 512);
-        copy_safe_header(request, &mut headers, "accept-language", 128);
-        if let Some(referer) = request.headers().get_one("referer") {
-            headers.insert(
-                "referer".to_owned(),
-                truncate_chars(strip_url_query(referer), 512),
-            );
-        }
+        let headers = collect_headers(request.headers());
 
         Outcome::Success(Self { ip, headers })
     }
 }
 
-fn copy_safe_header(
-    request: &Request<'_>,
-    target: &mut BTreeMap<String, String>,
-    name: &str,
-    max_chars: usize,
-) {
-    if let Some(value) = request.headers().get_one(name) {
-        target.insert(name.to_owned(), truncate_chars(value, max_chars));
+fn collect_headers(source: &HeaderMap<'_>) -> BTreeMap<String, String> {
+    let mut headers = BTreeMap::<String, String>::new();
+    for header in source.iter() {
+        let name = header.name().as_str().to_ascii_lowercase();
+        headers
+            .entry(name)
+            .and_modify(|value| {
+                value.push('\n');
+                value.push_str(header.value());
+            })
+            .or_insert_with(|| header.value().to_owned());
     }
+
+    headers
 }
 
 #[cfg(test)]
@@ -55,9 +51,21 @@ mod tests {
         metadata.ip
     }
 
+    #[rocket::get("/metadata-headers")]
+    fn metadata_headers(metadata: RequestMetadata) -> String {
+        serde_json::to_string(&metadata.headers).expect("request headers should serialize")
+    }
+
     fn test_client() -> Client {
-        Client::tracked(rocket::build().mount("/", rocket::routes![metadata_ip]))
+        Client::tracked(rocket::build().mount("/", rocket::routes![metadata_ip, metadata_headers]))
             .expect("valid Rocket test client")
+    }
+
+    fn captured_headers(header: Header<'static>) -> BTreeMap<String, String> {
+        let client = test_client();
+        let response = client.get("/metadata-headers").header(header).dispatch();
+        let body = response.into_string().expect("metadata response body");
+        serde_json::from_str(&body).expect("valid metadata JSON")
     }
 
     #[test]
@@ -82,6 +90,58 @@ mod tests {
         assert_eq!(
             response.into_string().as_deref(),
             Some("2001:db8:abcd:1234::1")
+        );
+    }
+
+    #[test]
+    fn request_metadata_collects_arbitrary_headers() {
+        let headers = captured_headers(Header::new("X-Custom-Metadata", "custom value"));
+
+        assert_eq!(
+            headers.get("x-custom-metadata").map(String::as_str),
+            Some("custom value")
+        );
+    }
+
+    #[test]
+    fn request_metadata_preserves_authorization_value() {
+        let headers = captured_headers(Header::new("Authorization", "Bearer secret-token"));
+
+        assert_eq!(
+            headers.get("authorization").map(String::as_str),
+            Some("Bearer secret-token")
+        );
+    }
+
+    #[test]
+    fn request_metadata_preserves_cookie_value() {
+        let headers = captured_headers(Header::new("Cookie", "session=secret-cookie"));
+
+        assert_eq!(
+            headers.get("cookie").map(String::as_str),
+            Some("session=secret-cookie")
+        );
+    }
+
+    #[test]
+    fn request_metadata_preserves_complete_referer_value() {
+        let referer = "https://example.test/page?token=secret#section";
+        let headers = captured_headers(Header::new("Referer", referer));
+
+        assert_eq!(headers.get("referer").map(String::as_str), Some(referer));
+    }
+
+    #[test]
+    fn request_metadata_preserves_repeated_header_values() {
+        let mut source = HeaderMap::new();
+        source.add(Header::new("X-Repeated", "first"));
+        source.add(Header::new("X-Repeated", "second"));
+
+        assert_eq!(
+            collect_headers(&source)
+                .get("x-repeated")
+                .map(String::as_str),
+            Some("first\nsecond")
         );
     }
 }

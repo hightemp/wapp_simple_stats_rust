@@ -9,6 +9,7 @@ Lightweight, self-hosted web counter written in Rust. It stores visits in SQLite
 - A real 30-calendar-day chart, including zero-visit days
 - Searchable path table and readable visit cards
 - Paginated visit history with extracted browser, referrer and language data
+- Complete raw request headers in expandable technical metadata
 - Automatic light/dark theme without external CDN dependencies
 - Basic Auth with constant-time credential comparison
 - Exact client IP collection with reverse-proxy support
@@ -44,7 +45,7 @@ src/
 └── security/
     ├── auth.rs                # Basic Auth guard and 401 response
     ├── headers.rs             # security response headers
-    └── request_metadata.rs    # safe request metadata collection
+    └── request_metadata.rs    # client IP and complete request metadata collection
 ```
 
 Unit tests live next to the code they cover. HTTP handlers and SQL access are kept separate so that either layer can evolve without recreating a monolithic entry point.
@@ -71,13 +72,9 @@ Basic Auth credentials are only transport-safe over HTTPS. Put the application b
 
 ### Privacy
 
-New visits store only these request headers:
+New visits store every incoming request header with its original value, without redaction. This includes `Authorization`, `Cookie`, forwarding headers, custom headers, and complete `Referer` URLs with query parameters and fragments. Repeated values are kept in arrival order and separated by a newline in the stored JSON value.
 
-- `User-Agent`
-- `Accept-Language`
-- `Referer` without query parameters or fragments
-
-Cookies, authorization values and arbitrary proxy headers are not stored. Exact client IP addresses are stored without masking. Treat the database as personal data, restrict access, define an appropriate retention period, and disclose this collection in your privacy policy. Existing database rows are not rewritten automatically.
+Exact client IP addresses are also stored without masking. The database and full JSON export can therefore contain passwords, session identifiers, API keys, personal data, and sensitive URL parameters. Restrict access and backups, define an appropriate retention period, and disclose this collection in your privacy policy. Existing database rows are not rewritten automatically.
 
 ## Endpoints
 
