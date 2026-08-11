@@ -1,5 +1,4 @@
 use std::collections::BTreeMap;
-use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
 
 use rocket::request::{FromRequest, Outcome, Request};
 
@@ -17,9 +16,8 @@ impl<'r> FromRequest<'r> for RequestMetadata {
 
     async fn from_request(request: &'r Request<'_>) -> Outcome<Self, Self::Error> {
         let ip = request
-            .remote()
-            .map(|address| address.ip().to_string())
-            .unwrap_or_else(|| "unknown".to_owned());
+            .client_ip()
+            .map_or_else(|| "unknown".to_owned(), |address| address.to_string());
 
         let mut headers = BTreeMap::new();
         copy_safe_header(request, &mut headers, "user-agent", 512);
@@ -46,31 +44,44 @@ fn copy_safe_header(
     }
 }
 
-pub(crate) fn anonymize_ip(value: &str) -> String {
-    match value.parse::<IpAddr>() {
-        Ok(IpAddr::V4(address)) => {
-            let [a, b, c, _] = address.octets();
-            Ipv4Addr::new(a, b, c, 0).to_string()
-        }
-        Ok(IpAddr::V6(address)) => {
-            let masked = u128::from(address) & (!0_u128 << 80);
-            Ipv6Addr::from(masked).to_string()
-        }
-        Err(_) => "unknown".to_owned(),
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
+    use rocket::http::Header;
+    use rocket::local::blocking::Client;
 
-    #[test]
-    fn anonymize_ip_masks_last_ipv4_octet() {
-        assert_eq!(anonymize_ip("192.0.2.42"), "192.0.2.0");
+    #[rocket::get("/metadata-ip")]
+    fn metadata_ip(metadata: RequestMetadata) -> String {
+        metadata.ip
+    }
+
+    fn test_client() -> Client {
+        Client::tracked(rocket::build().mount("/", rocket::routes![metadata_ip]))
+            .expect("valid Rocket test client")
     }
 
     #[test]
-    fn anonymize_ip_masks_ipv6_after_48_bits() {
-        assert_eq!(anonymize_ip("2001:db8:abcd:1234::1"), "2001:db8:abcd::");
+    fn request_metadata_preserves_client_ipv4_address() {
+        let client = test_client();
+        let response = client
+            .get("/metadata-ip")
+            .header(Header::new("X-Real-IP", "192.0.2.42"))
+            .dispatch();
+
+        assert_eq!(response.into_string().as_deref(), Some("192.0.2.42"));
+    }
+
+    #[test]
+    fn request_metadata_preserves_client_ipv6_address() {
+        let client = test_client();
+        let response = client
+            .get("/metadata-ip")
+            .header(Header::new("X-Real-IP", "2001:db8:abcd:1234::1"))
+            .dispatch();
+
+        assert_eq!(
+            response.into_string().as_deref(),
+            Some("2001:db8:abcd:1234::1")
+        );
     }
 }

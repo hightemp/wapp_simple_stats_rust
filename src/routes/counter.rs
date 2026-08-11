@@ -7,7 +7,7 @@ use rusqlite::params;
 
 use crate::config::AppConfig;
 use crate::database;
-use crate::security::{anonymize_ip, RequestMetadata};
+use crate::security::RequestMetadata;
 use crate::HandlerResult;
 
 const MAX_PATH_BYTES: usize = 255;
@@ -44,16 +44,10 @@ pub(crate) fn get_counter(
         eprintln!("cannot serialize request metadata: {error}");
         Status::InternalServerError
     })?;
-    let ip = if config.anonymize_ip() {
-        anonymize_ip(&request_metadata.ip)
-    } else {
-        request_metadata.ip
-    };
-
     connection
         .execute(
             "INSERT INTO visitors (path, ip, json) VALUES (?1, ?2, ?3)",
-            params![path, ip, headers_json],
+            params![path, request_metadata.ip, headers_json],
         )
         .map_err(database::map_error)?;
 

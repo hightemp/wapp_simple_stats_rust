@@ -11,7 +11,7 @@ Lightweight, self-hosted web counter written in Rust. It stores visits in SQLite
 - Paginated visit history with extracted browser, referrer and language data
 - Automatic light/dark theme without external CDN dependencies
 - Basic Auth with constant-time credential comparison
-- IP anonymization enabled by default (`/24` for IPv4, `/48` for IPv6)
+- Exact client IP collection with reverse-proxy support
 - Security headers, strict Content Security Policy and protected JSON export
 - SQLite WAL mode and indexes for concurrent reads and faster reports
 
@@ -67,7 +67,7 @@ cargo run --release --locked
 
 When authentication is enabled, the application refuses to start with an empty username, a password shorter than 12 bytes, or the example password. Disabling authentication is supported for explicitly trusted local networks, but the application prints a warning.
 
-Basic Auth credentials are only transport-safe over HTTPS. Put the application behind an HTTPS reverse proxy before exposing it to the internet. Do not configure that proxy to pass client-controlled `X-Real-IP` values unchanged.
+Basic Auth credentials are only transport-safe over HTTPS. Put the application behind an HTTPS reverse proxy before exposing it to the internet. Bind the application to a private or loopback address and configure the proxy to overwrite `X-Real-IP`; never pass a client-controlled value unchanged.
 
 ### Privacy
 
@@ -77,7 +77,7 @@ New visits store only these request headers:
 - `Accept-Language`
 - `Referer` without query parameters or fragments
 
-Cookies, authorization values and arbitrary proxy headers are not stored. Set `privacy.anonymize_ip: false` only when exact IP addresses are genuinely required and your privacy policy allows it. Existing database rows are not rewritten automatically.
+Cookies, authorization values and arbitrary proxy headers are not stored. Exact client IP addresses are stored without masking. Treat the database as personal data, restrict access, define an appropriate retention period, and disclose this collection in your privacy policy. Existing database rows are not rewritten automatically.
 
 ## Endpoints
 

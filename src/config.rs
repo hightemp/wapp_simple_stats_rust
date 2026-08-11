@@ -34,24 +34,10 @@ struct Auth {
 }
 
 #[derive(Deserialize, Debug, Clone)]
-#[serde(default)]
-struct Privacy {
-    anonymize_ip: bool,
-}
-
-impl Default for Privacy {
-    fn default() -> Self {
-        Self { anonymize_ip: true }
-    }
-}
-
-#[derive(Deserialize, Debug, Clone)]
 pub(crate) struct AppConfig {
     site: Site,
     theme: Theme,
     auth: Auth,
-    #[serde(default)]
-    privacy: Privacy,
     database: Option<Database>,
 }
 
@@ -70,10 +56,6 @@ impl AppConfig {
 
     pub(crate) fn credentials(&self) -> &BasicCredentials {
         &self.auth.basic
-    }
-
-    pub(crate) fn anonymize_ip(&self) -> bool {
-        self.privacy.anonymize_ip
     }
 
     pub(crate) fn database_path(&self) -> &str {
